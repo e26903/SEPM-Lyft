@@ -1,0 +1,6 @@
+{
+  "name": "SEPM Lyft",
+  "description": "Progressive Web App for lift station maintenance technicians to perform inspections, save reports offline, and export data as PDF or CSV.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": []
+}

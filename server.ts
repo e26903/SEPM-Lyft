@@ -1,0 +1,73 @@
+import express from "express";
+import { createServer as createViteServer } from "vite";
+import path from "path";
+import { Dropbox } from "dropbox";
+import bodyParser from "body-parser";
+
+async function startServer() {
+  const app = express();
+  const PORT = 3000;
+
+  // Increase payload limit for PDF binary data
+  app.use(bodyParser.json({ limit: '50mb' }));
+
+  // API Routes
+  app.post("/api/upload-to-dropbox", async (req, res) => {
+    const { pdfBase64, fileName, accessToken } = req.body;
+
+    if (!pdfBase64 || !fileName) {
+      return res.status(400).json({ error: "Missing file data" });
+    }
+
+    const token = accessToken || process.env.DROPBOX_ACCESS_TOKEN;
+
+    if (!token) {
+      return res.status(401).json({ error: "Dropbox Access Token not configured" });
+    }
+
+    try {
+      const dbx = new Dropbox({ accessToken: token });
+      
+      // Convert base64 to Buffer
+      const buffer = Buffer.from(pdfBase64, 'base64');
+
+      const response = await dbx.filesUpload({
+        path: `/${fileName}`,
+        contents: buffer,
+        mode: { '.tag': 'overwrite' },
+        autorename: true,
+        mute: false,
+        strict_conflict: false
+      });
+
+      res.json({ success: true, link: response.result.path_display });
+    } catch (error: any) {
+      console.error("Dropbox Upload Error:", error);
+      res.status(500).json({ 
+        error: "Failed to upload to Dropbox", 
+        details: error?.error?.error_summary || error.message 
+      });
+    }
+  });
+
+  // Vite integration
+  if (process.env.NODE_ENV !== "production") {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running at http://localhost:${PORT}`);
+  });
+}
+
+startServer();
