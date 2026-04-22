@@ -14,3 +14,8 @@ declare module "*.jpg" {
   const src: string;
   export default src;
 }
+
+interface Window {
+  onYouTubeIframeAPIReady: () => void;
+  YT: any;
+}

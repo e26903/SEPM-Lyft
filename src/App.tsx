@@ -323,27 +323,29 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
       initial={{ opacity: 0 }} 
       animate={{ opacity: 1 }} 
       exit={{ opacity: 0 }}
-      className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-white"
+      className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-slate-50"
     >
-      <div className="mb-8">
-         <LogoAnimation />
+      <div className="w-full max-w-2xl mb-12">
+        <div className="aspect-video shadow-2xl rounded-2xl overflow-hidden bg-black border border-slate-200">
+           <LogoAnimation />
+        </div>
       </div>
       
       <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={onStart}
-        className="px-12 py-5 bg-sepm-cyan hover:bg-sepm-cyan/80 text-white font-black rounded-3xl text-xl shadow-2xl shadow-sepm-cyan/30 transition-all uppercase tracking-[0.2em] z-10"
+        className="px-16 py-5 bg-sepm-cyan hover:bg-sepm-cyan/90 text-white font-black rounded-full text-xl shadow-2xl shadow-sepm-cyan/30 transition-all uppercase tracking-[0.2em] mb-12"
       >
         Enter
       </motion.button>
 
-      <div className="mt-16 space-y-2 opacity-60">
-        <p className="text-slate-900 text-[10px] font-bold tracking-[0.3em] uppercase">
+      <div className="space-y-2 opacity-40">
+        <p className="text-slate-900 text-[10px] font-bold tracking-[0.4em] uppercase">
           SEPM Construction & Maintenance
         </p>
-        <p className="text-sepm-cyan text-[9px] font-mono">
-          STATION INSPECTION PROTOCOL v1.0.43
+        <p className="text-sepm-cyan text-[9px] font-mono font-bold tracking-widest">
+          STATION INSPECTION PROTOCOL v1.0.44
         </p>
       </div>
     </motion.div>
@@ -353,7 +355,9 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
 function LogoAnimation() {
   const [mediaLevel, setMediaLevel] = useState(0); // 0: mp4, 1: gif, 2: jpg, 3: none
   const [mediaActive, setMediaActive] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [playerReady, setPlayerReady] = useState(false);
+  const playerRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const logoRef = useRef<HTMLImageElement>(null);
 
   const sources = {
@@ -362,44 +366,88 @@ function LogoAnimation() {
     jpg: brandingJpg
   };
 
+  useEffect(() => {
+    // Load YouTube API
+    if (mediaLevel === 0 && !window.YT) {
+      const tag = document.createElement('script');
+      tag.src = "https://www.youtube.com/iframe_api";
+      const firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+      
+      window.onYouTubeIframeAPIReady = () => {
+        initPlayer();
+      };
+    } else if (mediaLevel === 0 && window.YT) {
+      initPlayer();
+    }
+
+    function initPlayer() {
+      if (playerRef.current) return;
+      
+      playerRef.current = new window.YT.Player('yt-player', {
+        height: '100%',
+        width: '100%',
+        videoId: 'r6jjV_6L1Ws',
+        playerVars: {
+          autoplay: 1,
+          mute: 1,
+          controls: 0,
+          showinfo: 0,
+          rel: 0,
+          modestbranding: 1,
+          playsinline: 1,
+          iv_load_policy: 3,
+          enablejsapi: 1,
+          origin: window.location.origin
+        },
+        events: {
+          onReady: (event: any) => {
+            event.target.playVideo();
+            setPlayerReady(true);
+          },
+          onStateChange: (event: any) => {
+            // event.data: 1 = playing, 2 = paused, 3 = buffering, 0 = ended
+            if (event.data === 1) {
+              setMediaActive(true);
+            } else if (event.data === 0) {
+              // Re-play immediately on end to minimize gap
+              event.target.playVideo();
+              setMediaActive(false); // Briefly fade to logo during reset
+            } else if (event.data === 3) {
+              // Only hide if buffering is sustained
+            }
+          }
+        }
+      });
+    }
+
+    return () => {
+      // Clean up if needed
+    };
+  }, [mediaLevel]);
+
   return (
-    <div className="relative w-64 h-64 md:w-96 md:h-96 flex items-center justify-center mx-auto">
-      {/* 1. LAYER 0: THE INSTANT CODE-MARK (ALWAYS THERE AS BACKUP) */}
-      <div className={`absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-700 ${mediaActive ? 'opacity-0' : 'opacity-100'}`}>
-        <div className="relative p-2 transform scale-75 md:scale-100">
-           {/* Pixel-Perfect SEPM Box */}
-           <div className="relative border-[6px] md:border-[10px] border-[#00e5ff] px-8 py-3 mb-2 md:mb-4 bg-white/5">
-             <span className="text-6xl md:text-9xl font-[900] text-[#00e5ff] tracking-tighter italic uppercase leading-none" style={{ fontFamily: 'system-ui, sans-serif' }}>
+    <div className="relative w-full h-full flex items-center justify-center bg-white">
+      {/* 1. LAYER 0: THE SEAMLESS MASK (STATIC BRAND) */}
+      <div className={`absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-500 z-10 ${mediaActive ? 'opacity-0' : 'opacity-100'}`}>
+        <div className="relative p-2 transform scale-75 md:scale-90">
+           <div className="relative border-[6px] md:border-[8px] border-[#00e5ff] px-6 py-2 mb-2 bg-white">
+             <span className="text-4xl md:text-7xl font-[900] text-[#00e5ff] tracking-tighter italic uppercase leading-none" style={{ fontFamily: 'system-ui, sans-serif' }}>
                SEPM
              </span>
            </div>
-           {/* Massive LYFT Text */}
            <div className="text-center">
-             <h2 className="text-7xl md:text-[140px] font-[1000] text-slate-900 tracking-[-0.08em] uppercase leading-[0.8]" style={{ fontFamily: 'system-ui, sans-serif' }}>
+             <h2 className="text-5xl md:text-[100px] font-[1000] text-slate-900 tracking-[-0.08em] uppercase leading-[0.8]" style={{ fontFamily: 'system-ui, sans-serif' }}>
                LYFT
              </h2>
            </div>
-           {/* Brand Glow */}
-           <div className="absolute -right-12 -bottom-12 w-32 h-32 bg-emerald-400 rounded-full blur-[80px] opacity-40 animate-pulse" />
         </div>
-        <p className="mt-8 text-[10px] md:text-sm font-mono font-bold uppercase tracking-[0.5em] text-slate-400 opacity-60">
-          Digital Inspection Manifest
-        </p>
       </div>
 
-      {/* 2. LAYER 1: THE MEDIA (YOUTUBE -> GIF -> JPG) */}
-      <div className={`absolute inset-0 transition-opacity duration-1000 ${mediaActive ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
+      {/* 2. LAYER 1: THE VIDEO PLAYER */}
+      <div className={`absolute inset-0 transition-opacity duration-1000 ${mediaActive ? 'opacity-100' : 'opacity-0'}`}>
         {mediaLevel === 0 && (
-          <div className="w-full h-full relative overflow-hidden pointer-events-none">
-            <iframe
-              className="absolute top-1/2 left-1/2 w-[150%] h-[150%] -translate-x-1/2 -translate-y-1/2 object-cover"
-              src="https://www.youtube.com/embed/r6jjV_6L1Ws?autoplay=1&mute=1&loop=1&playlist=r6jjV_6L1Ws&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&enablejsapi=1"
-              allow="autoplay; encrypted-media"
-              onLoad={() => setMediaActive(true)}
-              onError={() => setMediaLevel(1)}
-              title="SEPM Branding"
-            />
-          </div>
+          <div id="yt-player" className="w-full h-full pointer-events-none" />
         )}
         {mediaLevel === 1 && (
           <img 
@@ -408,25 +456,7 @@ function LogoAnimation() {
             alt="SEPM Animation"
             className="w-full h-full object-contain"
             onLoad={() => setMediaActive(true)}
-            onError={() => {
-              console.error("GIF Load Error:", sources.gif);
-              setMediaLevel(2);
-            }}
-            referrerPolicy="no-referrer"
-          />
-        )}
-        {mediaLevel === 2 && (
-          <img 
-            ref={logoRef}
-            src={sources.jpg} 
-            alt="SEPM Static"
-            className="w-full h-full object-contain"
-            onLoad={() => setMediaActive(true)}
-            onError={() => {
-              console.error("JPG Load Error:", sources.jpg);
-              setMediaLevel(3);
-            }}
-            referrerPolicy="no-referrer"
+            onError={() => setMediaLevel(2)}
           />
         )}
       </div>
