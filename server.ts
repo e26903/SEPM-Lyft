@@ -51,6 +51,55 @@ async function startServer() {
     }
   });
 
+  const publicPath = path.join(process.cwd(), 'public');
+
+  // SPECIAL PROXIED ROUTE FOR BRAND MEDIA - BYPASSES ALL CACHING AND FORCES CORRECT STREAMING
+  // Available in both dev and production
+  app.get('/brand-stream/:filename', (req, res) => {
+    const filename = req.params.filename;
+    const filePath = path.join(publicPath, 'brand_assets', filename);
+    
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).send('Not Found');
+    }
+
+    const stat = fs.statSync(filePath);
+    const fileSize = stat.size;
+    const range = req.headers.range;
+
+    const ext = path.extname(filename).toLowerCase();
+    let contentType = 'application/octet-stream';
+    if (ext === '.mp4') contentType = 'video/mp4';
+    if (ext === '.gif') contentType = 'image/gif';
+    if (ext === '.jpg' || ext === '.jpeg') contentType = 'image/jpeg';
+
+    if (range) {
+      const parts = range.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const chunksize = (end - start) + 1;
+      const file = fs.createReadStream(filePath, { start, end });
+      const head = {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunksize,
+        'Content-Type': contentType,
+        'Cache-Control': 'no-cache'
+      };
+      res.writeHead(206, head);
+      file.pipe(res);
+    } else {
+      const head = {
+        'Content-Length': fileSize,
+        'Content-Type': contentType,
+        'Accept-Ranges': 'bytes',
+        'Cache-Control': 'no-cache'
+      };
+      res.writeHead(200, head);
+      fs.createReadStream(filePath).pipe(res);
+    }
+  });
+
   // Vite integration
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -60,7 +109,6 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    const publicPath = path.join(process.cwd(), 'public');
 
     // Serve static files from dist/ (production build)
     app.use(express.static(distPath, {
@@ -73,52 +121,6 @@ async function startServer() {
 
     // Fallback to public/ for non-built assets
     app.use(express.static(publicPath));
-
-    // SPECIAL PROXIED ROUTE FOR BRAND MEDIA - BYPASSES ALL CACHING AND FORCES CORRECT STREAMING
-    app.get('/brand-stream/:filename', (req, res) => {
-      const filename = req.params.filename;
-      const filePath = path.join(publicPath, 'brand_assets', filename);
-      
-      if (!fs.existsSync(filePath)) {
-        return res.status(404).send('Not Found');
-      }
-
-      const stat = fs.statSync(filePath);
-      const fileSize = stat.size;
-      const range = req.headers.range;
-
-      const ext = path.extname(filename).toLowerCase();
-      let contentType = 'application/octet-stream';
-      if (ext === '.mp4') contentType = 'video/mp4';
-      if (ext === '.gif') contentType = 'image/gif';
-      if (ext === '.jpg' || ext === '.jpeg') contentType = 'image/jpeg';
-
-      if (range) {
-        const parts = range.replace(/bytes=/, "").split("-");
-        const start = parseInt(parts[0], 10);
-        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-        const chunksize = (end - start) + 1;
-        const file = fs.createReadStream(filePath, { start, end });
-        const head = {
-          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-          'Accept-Ranges': 'bytes',
-          'Content-Length': chunksize,
-          'Content-Type': contentType,
-          'Cache-Control': 'no-cache'
-        };
-        res.writeHead(206, head);
-        file.pipe(res);
-      } else {
-        const head = {
-          'Content-Length': fileSize,
-          'Content-Type': contentType,
-          'Accept-Ranges': 'bytes',
-          'Cache-Control': 'no-cache'
-        };
-        res.writeHead(200, head);
-        fs.createReadStream(filePath).pipe(res);
-      }
-    });
 
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
