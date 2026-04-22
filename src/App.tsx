@@ -353,11 +353,13 @@ function LogoAnimation() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const logoRef = useRef<HTMLImageElement>(null);
 
-  // Use absolute stable paths with aggressive cache-busting
+  // Aggressive session-based cache-buster to ensure the browser ignores 0-byte caches
+  const [cacheBuster] = useState(() => Date.now().toString());
+  
   const sources = {
-    mp4: `/brand.mp4`,
-    gif: `/brand.gif`,
-    jpg: `/brand.jpg`
+    mp4: `/brand.mp4?v=${cacheBuster}`,
+    gif: `/brand.gif?v=${cacheBuster}`,
+    jpg: `/brand.jpg?v=${cacheBuster}`
   };
 
   return (
@@ -395,8 +397,13 @@ function LogoAnimation() {
             className="w-full h-full object-contain"
             onPlaying={() => setMediaActive(true)}
             onError={() => {
-              const code = videoRef.current?.error?.code;
-              console.error("Fatal Video Error - moving to GIF", code);
+              const video = videoRef.current;
+              const error = video?.error;
+              console.error("Fatal Video Error:", {
+                code: error?.code,
+                message: error?.message,
+                src: sources.mp4
+              });
               setMediaLevel(1);
             }}
           />
@@ -409,7 +416,7 @@ function LogoAnimation() {
             className="w-full h-full object-contain"
             onLoad={() => setMediaActive(true)}
             onError={() => {
-              console.error("GIF Error - moving to JPG");
+              console.error("GIF Load Error:", sources.gif);
               setMediaLevel(2);
             }}
             referrerPolicy="no-referrer"
@@ -422,7 +429,10 @@ function LogoAnimation() {
             alt="SEPM Static"
             className="w-full h-full object-contain"
             onLoad={() => setMediaActive(true)}
-            onError={() => setMediaLevel(3)}
+            onError={() => {
+              console.error("JPG Load Error:", sources.jpg);
+              setMediaLevel(3);
+            }}
             referrerPolicy="no-referrer"
           />
         )}
