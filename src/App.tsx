@@ -873,7 +873,7 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
                 <div className="flex gap-2">
                   <input 
                     type="password"
-                    placeholder="sl.u.A1b2c3..."
+                    placeholder={import.meta.env.VITE_DROPBOX_ACCESS_TOKEN ? "Active (from environment)" : "sl.u.A1b2c3..."}
                     className="flex-1 bg-white/5 border border-white/10 px-5 py-4 rounded-2xl text-sm outline-none focus:border-sepm-cyan transition-all font-mono"
                     value={dbxToken}
                     onChange={(e) => setDbxToken(e.target.value)}
@@ -885,6 +885,9 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
                     Authorize
                   </button>
                 </div>
+                {import.meta.env.VITE_DROPBOX_ACCESS_TOKEN && !dbxToken && (
+                  <p className="text-[9px] text-teal-400/60 mt-1 italic">Using environment-provided access token.</p>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Destination Path</label>

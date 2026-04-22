@@ -20,7 +20,7 @@ async function startServer() {
       return res.status(400).json({ error: "Missing file data" });
     }
 
-    const token = accessToken || process.env.DROPBOX_ACCESS_TOKEN;
+    const token = accessToken || process.env.VITE_DROPBOX_ACCESS_TOKEN || process.env.DROPBOX_ACCESS_TOKEN;
 
     if (!token) {
       return res.status(401).json({ error: "Dropbox Access Token not configured" });

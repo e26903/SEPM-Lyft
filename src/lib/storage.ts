@@ -76,5 +76,9 @@ export async function saveDropboxToken(token: string) {
 }
 
 export async function getDropboxToken(): Promise<string> {
-  return await settingsStore.getItem('dropbox_token') || '';
+  const token = await settingsStore.getItem<string>('dropbox_token');
+  if (token) return token;
+  
+  // Fallback to environment variable if set
+  return (import.meta.env.VITE_DROPBOX_ACCESS_TOKEN as string) || '';
 }
