@@ -348,15 +348,15 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
 }
 
 function LogoAnimation() {
-  const [errorLevel, setErrorLevel] = useState(0); // 0: mp4, 1: gif, 2: jpg, 3: text
+  const [errorLevel, setErrorLevel] = useState(0); // 0: mp4, 1: gif, 2: jpg, 3: ultra-fallback
   const logoRef = useRef<HTMLImageElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Safety timeout: if no asset loads within 8s, fallback to text
+  // Safety timeout: if no asset loads within 8s, fallback to ultra-fallback
   useEffect(() => {
     const timer = setTimeout(() => {
       if (errorLevel < 3) {
-        console.warn("Logo loading timed out (8s), falling back to text logo");
+        console.warn("Logo loading timed out (8s), falling back to high-fidelity fallback");
         setErrorLevel(3);
       }
     }, 8000);
@@ -373,12 +373,14 @@ function LogoAnimation() {
     }
   };
 
+  const assetVersion = "20260422.5";
+
   return (
     <div className="relative w-64 h-64 md:w-96 md:h-96 flex flex-col items-center justify-center mx-auto">
       {errorLevel === 0 && (
         <video 
           ref={videoRef}
-          src="/sepm-brand-final.mp4?v=20260422"
+          src={`/assets/v1/intro.mp4?v=${assetVersion}`}
           autoPlay 
           muted 
           loop 
@@ -387,25 +389,24 @@ function LogoAnimation() {
           className="w-full h-full object-contain"
           onError={(e) => {
             const videoError = videoRef.current?.error;
-            console.error("sepm-brand-final.mp4 failed to load", {
+            console.error("Intro video failed to load", {
               code: videoError?.code,
-              message: videoError?.message,
-              src: "/sepm-brand-final.mp4"
+              message: videoError?.message
             });
             setErrorLevel(1);
           }}
-          onLoadedData={() => console.log("sepm-brand-final.mp4 loaded successfully")}
+          onLoadedData={() => console.log("Intro video loaded successfully")}
         />
       )}
 
       {errorLevel === 1 && (
         <img 
           ref={logoRef}
-          src="/sepm-brand-final.gif?v=20260422" 
+          src={`/assets/v1/intro.gif?v=${assetVersion}`} 
           alt="SEPM Lyft Animation"
           referrerPolicy="no-referrer"
           onError={() => {
-            console.error("sepm-brand-final.gif failed to load");
+            console.error("Intro GIF failed to load");
             setErrorLevel(2);
           }}
           onLoad={handleLoad}
@@ -416,11 +417,11 @@ function LogoAnimation() {
       {errorLevel === 2 && (
         <img 
           ref={logoRef}
-          src="/sepm-brand-final.jpg?v=20260422" 
+          src={`/assets/v1/intro.jpg?v=${assetVersion}`} 
           alt="SEPM Lyft Logo"
           referrerPolicy="no-referrer"
           onError={() => {
-            console.error("sepm-brand-final.jpg failed to load");
+            console.error("Intro JPG failed to load");
             setErrorLevel(3);
           }}
           onLoad={handleLoad}
@@ -429,19 +430,35 @@ function LogoAnimation() {
       )}
 
       {errorLevel === 3 && (
-        <div className="flex flex-col items-center justify-center text-center space-y-2 py-10 animate-in fade-in duration-1000">
-          <h1 className="text-6xl md:text-8xl font-black text-sepm-cyan tracking-tighter leading-none uppercase italic border-4 border-sepm-cyan px-4 py-1">
-            SEPM
-          </h1>
-          <div className="relative">
-            <span className="text-7xl md:text-9xl font-black text-slate-900 tracking-tighter leading-none uppercase">
-              Lyft
-            </span>
-            <div className="absolute -right-4 -bottom-2 w-12 h-12 bg-lyft-lime rounded-full blur-xl opacity-50 animate-pulse" />
+        <div className="relative flex flex-col items-center justify-center text-center animate-in fade-in zoom-in duration-1000 scale-110">
+          {/* High Fidelity CSS/SVG Fallback Logo */}
+          <div className="relative group">
+            {/* Background Glow */}
+            <div className="absolute -inset-4 bg-sepm-cyan/20 blur-3xl rounded-full opacity-50 group-hover:opacity-75 transition-opacity" />
+            
+            {/* SEPM Box */}
+            <div className="relative border-4 border-sepm-cyan px-6 py-2 mb-2 bg-white/5 backdrop-blur-sm">
+              <span className="text-6xl md:text-8xl font-black text-sepm-cyan tracking-tighter leading-none uppercase italic drop-shadow-[0_2px_2px_rgba(0,0,0,0.1)]">
+                SEPM
+              </span>
+            </div>
+            
+            {/* LYFT Text */}
+            <div className="relative mt-[-10px] md:mt-[-20px]">
+              <span className="text-7xl md:text-9xl font-black text-slate-900 tracking-tighter leading-none uppercase drop-shadow-lg">
+                Lyft
+              </span>
+              {/* Lime Accent Glow */}
+              <div className="absolute -right-6 -bottom-4 w-16 h-16 bg-lyft-lime rounded-full blur-2xl opacity-40 animate-pulse" />
+            </div>
           </div>
-          <p className="text-[10px] text-slate-400 font-mono uppercase tracking-[0.4em] mt-4">
-            Digital Inspection Manifest
-          </p>
+          
+          <div className="mt-8 space-y-1 opacity-60">
+            <p className="text-[10px] md:text-xs font-mono uppercase tracking-[0.3em] text-slate-500">
+              Digital Inspection Manifest
+            </p>
+            <div className="h-[1px] w-12 bg-sepm-cyan/30 mx-auto" />
+          </div>
         </div>
       )}
     </div>
