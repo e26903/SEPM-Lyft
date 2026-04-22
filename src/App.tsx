@@ -314,6 +314,10 @@ export default function App() {
 
 // --- Screens ---
 
+import brandVideo from './assets/brand-video.mp4';
+import brandAnim from './assets/brand-anim.gif';
+import brandStatic from './assets/brand-static.jpg';
+
 function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
   return (
     <motion.div 
@@ -352,15 +356,14 @@ function LogoAnimation() {
   const logoRef = useRef<HTMLImageElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Safety timeout: if no asset loads within 5s, fallback to text
-  // Increased to 5s because video can take a moment to buffer on slow connections
+  // Safety timeout: if no asset loads within 8s, fallback to text
   useEffect(() => {
     const timer = setTimeout(() => {
       if (errorLevel < 3) {
-        console.warn("Logo loading timed out, falling back to text logo");
+        console.warn("Logo loading timed out (8s), falling back to text logo");
         setErrorLevel(3);
       }
-    }, 5000);
+    }, 8000);
     return () => clearTimeout(timer);
   }, [errorLevel]);
 
@@ -379,29 +382,34 @@ function LogoAnimation() {
       {errorLevel === 0 && (
         <video 
           ref={videoRef}
+          src={brandVideo}
           autoPlay 
           muted 
           loop 
           playsInline
+          preload="auto"
           className="w-full h-full object-contain"
-          onError={() => {
-            console.error("brand-video.mp4 failed to load");
+          onError={(e) => {
+            const videoError = videoRef.current?.error;
+            console.error("brand-video.mp4 failed to load", {
+              code: videoError?.code,
+              message: videoError?.message,
+              src: brandVideo
+            });
             setErrorLevel(1);
           }}
-          onCanPlay={() => console.log("brand-video.mp4 ready")}
-        >
-          <source src="/brand-video.mp4" type="video/mp4" />
-        </video>
+          onLoadedData={() => console.log("brand-video.mp4 loaded data successfully")}
+        />
       )}
 
       {errorLevel === 1 && (
         <img 
           ref={logoRef}
-          src="/brand-anim.gif" 
+          src={brandAnim} 
           alt="SEPM Lyft Animation"
           referrerPolicy="no-referrer"
           onError={() => {
-            console.error("brand-anim.gif failed to load");
+            console.error("brand-anim.gif failed to load", { src: brandAnim });
             setErrorLevel(2);
           }}
           onLoad={handleLoad}
@@ -412,11 +420,11 @@ function LogoAnimation() {
       {errorLevel === 2 && (
         <img 
           ref={logoRef}
-          src="/brand-static.jpg" 
+          src={brandStatic} 
           alt="SEPM Lyft Logo"
           referrerPolicy="no-referrer"
           onError={() => {
-            console.error("brand-static.jpg failed to load");
+            console.error("brand-static.jpg failed to load", { src: brandStatic });
             setErrorLevel(3);
           }}
           onLoad={handleLoad}
