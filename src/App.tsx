@@ -314,9 +314,9 @@ export default function App() {
 
 // --- Screens ---
 
-import brandVideo from './assets/brand-video.mp4';
-import brandAnim from './assets/brand-anim.gif';
-import brandStatic from './assets/brand-static.jpg';
+import introVideo from './assets/sepm-intro-video.mp4';
+import introAnim from './assets/sepm-intro-anim.gif';
+import introStatic from './assets/sepm-intro-static.jpg';
 
 function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
   return (
@@ -382,7 +382,7 @@ function LogoAnimation() {
       {errorLevel === 0 && (
         <video 
           ref={videoRef}
-          src={brandVideo}
+          src={introVideo}
           autoPlay 
           muted 
           loop 
@@ -391,25 +391,25 @@ function LogoAnimation() {
           className="w-full h-full object-contain"
           onError={(e) => {
             const videoError = videoRef.current?.error;
-            console.error("brand-video.mp4 failed to load", {
+            console.error("sepm-intro-video.mp4 failed to load", {
               code: videoError?.code,
               message: videoError?.message,
-              src: brandVideo
+              src: introVideo
             });
             setErrorLevel(1);
           }}
-          onLoadedData={() => console.log("brand-video.mp4 loaded data successfully")}
+          onLoadedData={() => console.log("sepm-intro-video.mp4 loaded successfully")}
         />
       )}
 
       {errorLevel === 1 && (
         <img 
           ref={logoRef}
-          src={brandAnim} 
+          src={introAnim} 
           alt="SEPM Lyft Animation"
           referrerPolicy="no-referrer"
           onError={() => {
-            console.error("brand-anim.gif failed to load", { src: brandAnim });
+            console.error("sepm-intro-anim.gif failed to load", { src: introAnim });
             setErrorLevel(2);
           }}
           onLoad={handleLoad}
@@ -420,11 +420,11 @@ function LogoAnimation() {
       {errorLevel === 2 && (
         <img 
           ref={logoRef}
-          src={brandStatic} 
+          src={introStatic} 
           alt="SEPM Lyft Logo"
           referrerPolicy="no-referrer"
           onError={() => {
-            console.error("brand-static.jpg failed to load", { src: brandStatic });
+            console.error("sepm-intro-static.jpg failed to load", { src: introStatic });
             setErrorLevel(3);
           }}
           onLoad={handleLoad}
