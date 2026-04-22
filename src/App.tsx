@@ -348,50 +348,83 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
 }
 
 function LogoAnimation() {
-  const [errorLevel, setErrorLevel] = useState(0); // 0: gif, 1: jpg, 2: text
+  const [errorLevel, setErrorLevel] = useState(0); // 0: mp4, 1: gif, 2: jpg, 3: text
+  const logoRef = useRef<HTMLImageElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Safety timeout: if no image loads within 3s, fallback to text
+  // Safety timeout: if no asset loads within 5s, fallback to text
+  // Increased to 5s because video can take a moment to buffer on slow connections
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (errorLevel < 2) {
+      if (errorLevel < 3) {
         console.warn("Logo loading timed out, falling back to text logo");
-        setErrorLevel(2);
+        setErrorLevel(3);
       }
-    }, 3000);
+    }, 5000);
     return () => clearTimeout(timer);
   }, [errorLevel]);
+
+  // Check if image actually rendered (naturalWidth > 0)
+  const handleLoad = () => {
+    if (logoRef.current && logoRef.current.naturalWidth === 0) {
+      console.warn(`Asset at level ${errorLevel} loaded but has no dimensions.`);
+      setErrorLevel(prev => prev + 1);
+    } else {
+      console.log(`Asset at level ${errorLevel} rendered successfully`);
+    }
+  };
 
   return (
     <div className="relative w-64 h-64 md:w-96 md:h-96 flex flex-col items-center justify-center mx-auto">
       {errorLevel === 0 && (
+        <video 
+          ref={videoRef}
+          autoPlay 
+          muted 
+          loop 
+          playsInline
+          className="w-full h-full object-contain"
+          onError={() => {
+            console.error("logo.mp4 failed to load");
+            setErrorLevel(1);
+          }}
+          onCanPlay={() => console.log("logo.mp4 ready")}
+        >
+          <source src="/logo.mp4" type="video/mp4" />
+        </video>
+      )}
+
+      {errorLevel === 1 && (
         <img 
+          ref={logoRef}
           src="/logo.gif" 
           alt="SEPM Lyft Animation"
           referrerPolicy="no-referrer"
           onError={() => {
             console.error("logo.gif failed to load");
-            setErrorLevel(1);
+            setErrorLevel(2);
           }}
-          onLoad={() => console.log("logo.gif loaded successfully")}
+          onLoad={handleLoad}
           className="w-full h-full object-contain"
         />
       )}
       
-      {errorLevel === 1 && (
+      {errorLevel === 2 && (
         <img 
+          ref={logoRef}
           src="/logo.jpg" 
           alt="SEPM Lyft Logo"
           referrerPolicy="no-referrer"
           onError={() => {
             console.error("logo.jpg failed to load");
-            setErrorLevel(2);
+            setErrorLevel(3);
           }}
-          onLoad={() => console.log("logo.jpg loaded successfully")}
+          onLoad={handleLoad}
           className="w-full h-full object-contain"
         />
       )}
 
-      {errorLevel === 2 && (
+      {errorLevel === 3 && (
         <div className="flex flex-col items-center justify-center text-center space-y-2 py-10 animate-in fade-in duration-1000">
           <h1 className="text-6xl md:text-8xl font-black text-sepm-cyan tracking-tighter leading-none uppercase italic border-4 border-sepm-cyan px-4 py-1">
             SEPM
