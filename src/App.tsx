@@ -354,7 +354,7 @@ function LogoAnimation() {
   const logoRef = useRef<HTMLImageElement>(null);
 
   // Auto-advance if media fails
-  const assetVersion = "2026.FINAL.ULTIMATE";
+  const assetVersion = "2026.HYPER.V2";
 
   return (
     <div className="relative w-64 h-64 md:w-96 md:h-96 flex items-center justify-center mx-auto">
