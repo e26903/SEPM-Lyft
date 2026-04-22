@@ -81,15 +81,15 @@ async function startServer() {
       const distFilePath = path.join(distPath, cleanPath);
       const publicFilePath = path.join(publicPath, cleanPath);
       
-      // PRIORITY: Specific Branding Assets v2
-      if (cleanPath === '/branding-v2.mp4' || cleanPath === '/branding-v2.gif' || cleanPath === '/branding-v2.jpg') {
+      // PRIORITY: Specific Branding Assets v3
+      if (cleanPath.startsWith('/assets/brand/')) {
         const targetPath = fs.existsSync(distFilePath) ? distFilePath : publicFilePath;
         if (fs.existsSync(targetPath)) {
           if (cleanPath.endsWith('.mp4')) res.setHeader('Content-Type', 'video/mp4');
           if (cleanPath.endsWith('.gif')) res.setHeader('Content-Type', 'image/gif');
           if (cleanPath.endsWith('.jpg')) res.setHeader('Content-Type', 'image/jpeg');
           res.setHeader('Accept-Ranges', 'bytes');
-          res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
           return res.sendFile(targetPath);
         }
       }

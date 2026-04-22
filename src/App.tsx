@@ -354,9 +354,9 @@ function LogoAnimation() {
   const logoRef = useRef<HTMLImageElement>(null);
 
   const sources = {
-    mp4: `/branding-v2.mp4`,
-    gif: `/branding-v2.gif`,
-    jpg: `/branding-v2.jpg`
+    mp4: `/assets/brand/brand-v3.mp4`,
+    gif: `/assets/brand/brand-v3.gif`,
+    jpg: `/assets/brand/brand-v3.jpg`
   };
 
   return (
