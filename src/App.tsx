@@ -349,33 +349,30 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
 
 function LogoAnimation() {
   const [errorLevel, setErrorLevel] = useState(0); // 0: mp4, 1: gif, 2: jpg, 3: fallback
-  const [hasPlayed, setHasPlayed] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
   const logoRef = useRef<HTMLImageElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Per-level timeout logic
+  // Initial timeout ONLY for the video player (the most likely to stall)
   useEffect(() => {
-    if (hasPlayed && errorLevel === 0) return; // Video is playing, don't time out
+    if (errorLevel !== 0 || isLoaded) return;
 
-    const timeoutDuration = errorLevel === 0 ? 4000 : 3000; // 4s for video, 3s for images
     const timer = setTimeout(() => {
-      console.warn(`Level ${errorLevel} timed out, moving to next fallback`);
-      setErrorLevel(prev => prev + 1);
-    }, timeoutDuration);
+      console.warn("Video timed out, jumping to GIF");
+      setErrorLevel(1);
+    }, 5000);
 
     return () => clearTimeout(timer);
-  }, [errorLevel, hasPlayed]);
+  }, [errorLevel, isLoaded]);
 
-  const handleLoad = () => {
+  const handleImageLoad = () => {
     if (logoRef.current && logoRef.current.naturalWidth > 0) {
-      console.log(`Asset at level ${errorLevel} rendered successfully`);
-    } else {
-      console.warn(`Asset at level ${errorLevel} loaded but invalid`);
-      setErrorLevel(prev => prev + 1);
+      console.log(`Asset ${errorLevel} rendered successfully`);
+      setIsLoaded(true);
     }
   };
 
-  const assetVersion = "20260422.6";
+  const assetVersion = "20260422.7";
 
   return (
     <div className="relative w-64 h-64 md:w-96 md:h-96 flex flex-col items-center justify-center mx-auto">
@@ -389,9 +386,9 @@ function LogoAnimation() {
           playsInline
           preload="auto"
           className="w-full h-full object-contain"
-          onPlaying={() => setHasPlayed(true)}
-          onError={(e) => {
-            console.error("Intro video error:", videoRef.current?.error);
+          onPlaying={() => setIsLoaded(true)}
+          onError={() => {
+            console.error("Video failed - moving to GIF");
             setErrorLevel(1);
           }}
         />
@@ -402,10 +399,13 @@ function LogoAnimation() {
           ref={logoRef}
           src={`/assets/v1/intro.gif?v=${assetVersion}`} 
           alt="SEPM Lyft Animation"
-          referrerPolicy="no-referrer"
-          onError={() => setErrorLevel(2)}
-          onLoad={handleLoad}
+          onError={() => {
+            console.error("GIF failed - moving to JPG");
+            setErrorLevel(2);
+          }}
+          onLoad={handleImageLoad}
           className="w-full h-full object-contain"
+          referrerPolicy="no-referrer"
         />
       )}
       
@@ -414,37 +414,45 @@ function LogoAnimation() {
           ref={logoRef}
           src={`/assets/v1/intro.jpg?v=${assetVersion}`} 
           alt="SEPM Lyft Logo"
-          referrerPolicy="no-referrer"
-          onError={() => setErrorLevel(3)}
-          onLoad={handleLoad}
+          onError={() => {
+            console.error("JPG failed - moving to CODE");
+            setErrorLevel(3);
+          }}
+          onLoad={handleImageLoad}
           className="w-full h-full object-contain"
+          referrerPolicy="no-referrer"
         />
       )}
 
       {errorLevel >= 3 && (
         <div className="relative flex flex-col items-center justify-center text-center animate-in fade-in zoom-in duration-1000">
-          <div className="relative">
-            {/* Professional SVG Reconstruction */}
-            <svg viewBox="0 0 400 200" className="w-64 h-32 md:w-96 md:h-48 drop-shadow-2xl">
+          <div className="relative p-2">
+            {/* Ultra-High Fidelity SVG Brand Reconstruction */}
+            <svg viewBox="0 0 500 250" className="w-72 h-36 md:w-[450px] md:h-56 drop-shadow-2xl filter brightness-110">
               <defs>
-                <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" style={{ stopColor: '#00FFFF', stopOpacity: 1 }} />
-                  <stop offset="100%" style={{ stopColor: '#00CED1', stopOpacity: 1 }} />
-                </linearGradient>
+                <clipPath id="textClip">
+                  <text x="50%" y="85" textAnchor="middle" fontStyle="italic" fontWeight="900" fontSize="100" fontFamily="system-ui, -apple-system, sans-serif" letterSpacing="-4">
+                    SEPM
+                  </text>
+                </clipPath>
               </defs>
-              {/* SEPM Rectangle */}
-              <rect x="10" y="10" width="380" height="100" fill="none" stroke="url(#cyanGrad)" strokeWidth="8" />
-              <text x="50%" y="85" textAnchor="middle" fontStyle="italic" fontWeight="900" fontSize="80" fontFamily="Inter, sans-serif" fill="url(#cyanGrad)" letterSpacing="-4">
+              
+              {/* Outer Cyan Box - Brighter & Bolder */}
+              <rect x="10" y="10" width="480" height="110" fill="none" stroke="#22d3ee" strokeWidth="12" />
+              
+              {/* SEPM Main Text */}
+              <text x="50%" y="95" textAnchor="middle" fontStyle="italic" fontWeight="900" fontSize="90" fontFamily="system-ui, -apple-system, sans-serif" fill="#22d3ee" letterSpacing="-5">
                 SEPM
               </text>
-              {/* LYFT Text */}
-              <text x="50%" y="185" textAnchor="middle" fontWeight="900" fontSize="100" fontFamily="Inter, sans-serif" fill="#1e293b" letterSpacing="-6">
+              
+              {/* LYFT Main Text - Extra Bold / Heavy Subtitle Style */}
+              <text x="50%" y="220" textAnchor="middle" fontWeight="950" fontSize="130" fontFamily="system-ui, -apple-system, sans-serif" fill="#0f172a" letterSpacing="-8">
                 LYFT
               </text>
             </svg>
-            <div className="absolute -right-4 -bottom-4 w-12 h-12 bg-lyft-lime rounded-full blur-2xl opacity-40 animate-pulse" />
+            <div className="absolute -right-8 -bottom-8 w-20 h-20 bg-emerald-400 rounded-full blur-3xl opacity-30 animate-pulse" />
           </div>
-          <p className="mt-6 text-[10px] md:text-xs font-mono uppercase tracking-[0.5em] text-slate-400 opacity-60">
+          <p className="mt-8 text-[11px] md:text-sm font-mono uppercase tracking-[0.6em] text-slate-500 font-bold opacity-80">
             Digital Inspection Manifest
           </p>
         </div>
