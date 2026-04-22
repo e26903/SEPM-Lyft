@@ -354,7 +354,7 @@ function LogoAnimation() {
   const logoRef = useRef<HTMLImageElement>(null);
 
   // Auto-advance if media fails
-  const assetVersion = "2026.HYPER.V2";
+  const assetVersion = "2026.BRAND.V10";
 
   return (
     <div className="relative w-64 h-64 md:w-96 md:h-96 flex items-center justify-center mx-auto">
@@ -386,7 +386,7 @@ function LogoAnimation() {
         {mediaLevel === 0 && (
           <video 
             ref={videoRef}
-            src={`/static-brand/intro.mp4?v=${assetVersion}`}
+            src={`/brand-final/sepm-v10.mp4?v=${assetVersion}`}
             autoPlay muted loop playsInline preload="auto"
             className="w-full h-full object-contain"
             onPlaying={() => setMediaActive(true)}
@@ -403,7 +403,7 @@ function LogoAnimation() {
         {mediaLevel === 1 && (
           <img 
             ref={logoRef}
-            src={`/static-brand/intro.gif?v=${assetVersion}`} 
+            src={`/brand-final/sepm-v10.gif?v=${assetVersion}`} 
             alt="SEPM Animation"
             className="w-full h-full object-contain"
             onLoad={() => setMediaActive(true)}
@@ -414,7 +414,7 @@ function LogoAnimation() {
         {mediaLevel === 2 && (
           <img 
             ref={logoRef}
-            src={`/static-brand/intro.jpg?v=${assetVersion}`} 
+            src={`/brand-final/sepm-v10.jpg?v=${assetVersion}`} 
             alt="SEPM Static"
             className="w-full h-full object-contain"
             onLoad={() => setMediaActive(true)}

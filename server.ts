@@ -59,9 +59,18 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    const publicAssetsPath = path.join(process.cwd(), 'public');
-    app.use(express.static(distPath));
-    app.use(express.static(publicAssetsPath));
+    const publicPath = path.join(process.cwd(), 'public');
+
+    // Serve static files from dist/ first (production build)
+    app.use(express.static(distPath, {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.mp4')) res.setHeader('Content-Type', 'video/mp4');
+        if (filePath.endsWith('.gif')) res.setHeader('Content-Type', 'image/gif');
+      }
+    }));
+
+    // Fallback to public/ for non-built assets
+    app.use(express.static(publicPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });

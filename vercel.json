@@ -1,12 +1,12 @@
 {
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/static-brand/(.*)", "destination": "/static-brand/$1" },
-    { "source": "/((?!api|static-brand).*)", "destination": "/index.html" }
+    { "source": "/brand-final/(.*)", "destination": "/brand-final/$1" },
+    { "source": "/((?!api|brand-final).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
-      "source": "/static-brand/(.*)",
+      "source": "/brand-final/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" },
         { "key": "Access-Control-Allow-Origin", "value": "*" }
