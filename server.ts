@@ -1,6 +1,7 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
+import fs from "fs";
 import { Dropbox } from "dropbox";
 import bodyParser from "body-parser";
 
@@ -72,7 +73,19 @@ async function startServer() {
 
     // Fallback to public/ for non-built assets
     app.use(express.static(publicPath));
+
     app.get('*', (req, res) => {
+      // Logic for Vercel/Production to ensure static files are not intercepted by index.html
+      const publicFilePath = path.join(publicPath, req.path);
+      const distFilePath = path.join(distPath, req.path);
+      
+      if (fs.existsSync(publicFilePath) && fs.lstatSync(publicFilePath).isFile()) {
+        return res.sendFile(publicFilePath);
+      }
+      if (fs.existsSync(distFilePath) && fs.lstatSync(distFilePath).isFile()) {
+        return res.sendFile(distFilePath);
+      }
+
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

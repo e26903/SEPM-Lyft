@@ -43,9 +43,6 @@ import { InspectionForm } from './components/InspectionForm';
 import { generateInspectionPDF } from './lib/pdf';
 import { exportToCSV } from './lib/csv';
 import { Site } from './data/sites';
-import introVideo from './assets/intro.mp4';
-import introGif from './assets/intro.gif';
-import introJpg from './assets/intro.jpg';
 
 // Screens
 type Screen = 'welcome' | 'dashboard' | 'form' | 'success' | 'reports' | 'settings';
@@ -356,6 +353,14 @@ function LogoAnimation() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const logoRef = useRef<HTMLImageElement>(null);
 
+  // Use absolute stable paths with aggressive cache-busting
+  const assetVersion = "2026.STABLE.V20";
+  const sources = {
+    mp4: `/intro.mp4?v=${assetVersion}`,
+    gif: `/intro.gif?v=${assetVersion}`,
+    jpg: `/intro.jpg?v=${assetVersion}`
+  };
+
   return (
     <div className="relative w-64 h-64 md:w-96 md:h-96 flex items-center justify-center mx-auto">
       {/* 1. LAYER 0: THE INSTANT CODE-MARK (ALWAYS THERE AS BACKUP) */}
@@ -385,36 +390,36 @@ function LogoAnimation() {
       <div className={`absolute inset-0 transition-opacity duration-1000 ${mediaActive ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
         {mediaLevel === 0 && (
           <video 
-            ref= {videoRef}
-            src={introVideo}
+            ref={videoRef}
+            src={sources.mp4}
             autoPlay muted loop playsInline preload="auto"
             className="w-full h-full object-contain"
             onPlaying={() => setMediaActive(true)}
             onError={() => {
               const code = videoRef.current?.error?.code;
-              // Ignore ABORTED (1) as it happens normally during buffering/range requests
-              if (code && code > 1) {
-                console.error("Fatal Video Error - moving to GIF", code);
-                setMediaLevel(1);
-              }
+              console.error("Fatal Video Error - moving to GIF", code);
+              setMediaLevel(1);
             }}
           />
         )}
         {mediaLevel === 1 && (
           <img 
             ref={logoRef}
-            src={introGif} 
+            src={sources.gif} 
             alt="SEPM Animation"
             className="w-full h-full object-contain"
             onLoad={() => setMediaActive(true)}
-            onError={() => setMediaLevel(2)}
+            onError={() => {
+              console.error("GIF Error - moving to JPG");
+              setMediaLevel(2);
+            }}
             referrerPolicy="no-referrer"
           />
         )}
         {mediaLevel === 2 && (
           <img 
             ref={logoRef}
-            src={introJpg} 
+            src={sources.jpg} 
             alt="SEPM Static"
             className="w-full h-full object-contain"
             onLoad={() => setMediaActive(true)}
