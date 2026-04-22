@@ -354,11 +354,10 @@ function LogoAnimation() {
   const logoRef = useRef<HTMLImageElement>(null);
 
   // Use absolute stable paths with aggressive cache-busting
-  const assetVersion = "2026.STABLE.V20";
   const sources = {
-    mp4: `/intro.mp4?v=${assetVersion}`,
-    gif: `/intro.gif?v=${assetVersion}`,
-    jpg: `/intro.jpg?v=${assetVersion}`
+    mp4: `/brand.mp4`,
+    gif: `/brand.gif`,
+    jpg: `/brand.jpg`
   };
 
   return (

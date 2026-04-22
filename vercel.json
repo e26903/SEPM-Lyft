@@ -1,25 +1,15 @@
 {
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/intro.mp4", "destination": "/intro.mp4" },
-    { "source": "/intro.gif", "destination": "/intro.gif" },
-    { "source": "/intro.jpg", "destination": "/intro.jpg" },
-    { "source": "/((?!api|intro.mp4|intro.gif|intro.jpg).*)", "destination": "/index.html" }
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
     {
-      "source": "/intro.(mp4|gif|jpg)",
+      "source": "/brand.(mp4|gif|jpg)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
         { "key": "Access-Control-Allow-Origin", "value": "*" },
         { "key": "Accept-Ranges", "value": "bytes" }
-      ]
-    },
-    {
-      "source": "/assets/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" },
-        { "key": "Access-Control-Allow-Origin", "value": "*" }
       ]
     }
   ]

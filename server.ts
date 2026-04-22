@@ -75,14 +75,18 @@ async function startServer() {
     app.use(express.static(publicPath));
 
     app.get('*', (req, res) => {
-      // Logic for Vercel/Production to ensure static files are not intercepted by index.html
-      const publicFilePath = path.join(publicPath, req.path);
-      const distFilePath = path.join(distPath, req.path);
+      // Remove query string for file check
+      const cleanPath = req.path.split('?')[0];
+      const distFilePath = path.join(distPath, cleanPath);
       
-      if (fs.existsSync(publicFilePath) && fs.lstatSync(publicFilePath).isFile()) {
-        return res.sendFile(publicFilePath);
-      }
       if (fs.existsSync(distFilePath) && fs.lstatSync(distFilePath).isFile()) {
+        const ext = path.extname(cleanPath).toLowerCase();
+        if (ext === '.mp4') res.setHeader('Content-Type', 'video/mp4');
+        if (ext === '.gif') res.setHeader('Content-Type', 'image/gif');
+        if (ext === '.jpg' || ext === '.jpeg') res.setHeader('Content-Type', 'image/jpeg');
+        
+        // Add streaming headers
+        res.setHeader('Accept-Ranges', 'bytes');
         return res.sendFile(distFilePath);
       }
 
