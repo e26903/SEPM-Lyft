@@ -244,6 +244,7 @@ export default function App() {
                 onDelete={handleDeleteClick}
                 onExportCSV={() => exportToCSV(inspections)}
                 onSettings={() => setCurrentScreen('settings')}
+                loadInspections={loadInspections}
               />
             </div>
           )}
@@ -452,7 +453,7 @@ function LogoAnimation() {
   );
 }
 
-function DashboardScreen({ inspections, searchQuery, setSearchQuery, onNew, onEdit, onDelete, onExportCSV, onSettings }: any) {
+function DashboardScreen({ inspections, searchQuery, setSearchQuery, onNew, onEdit, onDelete, onExportCSV, onSettings, loadInspections }: any) {
   const filtered = inspections.filter((i: any) => 
     (i.workOrderNo || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
     (i.storeNo || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -516,7 +517,16 @@ function DashboardScreen({ inspections, searchQuery, setSearchQuery, onNew, onEd
 
         <div className="space-y-4">
           <div className="flex justify-between items-center border-b border-slate-100 pb-4">
-            <h3 className="font-black uppercase tracking-widest text-[9px] md:text-xs text-slate-400">Recent Inspections</h3>
+            <div className="flex items-center gap-3">
+              <h3 className="font-black uppercase tracking-widest text-[9px] md:text-xs text-slate-400">Recent Inspections</h3>
+              <button 
+                onClick={() => loadInspections()} 
+                className="p-1.5 text-slate-300 hover:text-sepm-cyan transition-colors"
+                title="Refresh Records"
+              >
+                <History size={12} />
+              </button>
+            </div>
             <span className="text-[10px] font-bold text-sepm-cyan bg-sepm-cyan/10 px-2 py-0.5 rounded-full uppercase tracking-widest">{filtered.length} TOTAL</span>
           </div>
 
@@ -540,17 +550,18 @@ function DashboardScreen({ inspections, searchQuery, setSearchQuery, onNew, onEd
                 <div className="flex justify-between items-center mt-2 border-t border-slate-50 pt-3">
                    <p className="text-[9px] text-slate-400 uppercase font-bold">{format(new Date(i.createdAt), 'MMM d, yyyy')}</p>
                    <div className="flex gap-2">
-                     {i.status === 'submitted' && (
-                       <button 
-                         onClick={(e) => {
-                           e.stopPropagation();
-                           generateInspectionPDF(i);
-                         }}
-                         className="p-2 text-sepm-cyan hover:scale-110 active:scale-95 transition-all"
-                       >
-                         <Download size={16} />
-                       </button>
-                     )}
+                        {i.status === 'submitted' && (
+                          <button 
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const doc = await generateInspectionPDF(i);
+                              doc.save(`SEPM_Report_${i.workOrderNo || 'Draft'}.pdf`);
+                            }}
+                            className="p-2 text-sepm-cyan hover:scale-110 active:scale-95 transition-all"
+                          >
+                            <Download size={16} />
+                          </button>
+                        )}
                      <button 
                         onClick={(e) => onDelete(i.id, e)}
                         className="p-2 text-slate-300 hover:text-red-500 active:scale-90 transition-transform"
@@ -593,9 +604,10 @@ function DashboardScreen({ inspections, searchQuery, setSearchQuery, onNew, onEd
                       <div className="flex items-center justify-end gap-2">
                         {i.status === 'submitted' && (
                           <button 
-                            onClick={(e) => {
+                            onClick={async (e) => {
                               e.stopPropagation();
-                              generateInspectionPDF(i);
+                              const doc = await generateInspectionPDF(i);
+                              doc.save(`SEPM_Report_${i.workOrderNo || 'Draft'}.pdf`);
                             }}
                             className="p-2 text-sepm-cyan hover:scale-110 active:scale-95 transition-all"
                             title="Export PDF"
@@ -661,19 +673,32 @@ function SuccessScreen({ inspection, onDashboard }: { inspection: InspectionData
         <p className="text-slate-500 text-xs md:text-sm font-bold uppercase tracking-widest opacity-60">Manifest Transmitted Successfully</p>
       </div>
       
-      <div className="flex justify-center w-full max-w-sm mb-12">
+      <div className="grid grid-cols-2 gap-4 w-full max-w-sm mb-12">
         <button 
           onClick={() => {
             const subject = encodeURIComponent(`Inspection Report: WO #${inspection.workOrderNo} - Store #${inspection.storeNo}`);
             const body = encodeURIComponent(`Find the attached inspection report for Work Order #${inspection.workOrderNo} completed on ${format(new Date(), 'PPP')}.`);
             window.location.href = `mailto:stakeholders@sepm.com?subject=${subject}&body=${body}`;
           }}
-          className="flex flex-col items-center gap-4 p-8 bg-slate-50 border border-slate-100 rounded-[2.5rem] hover:border-sepm-cyan transition-all group shadow-sm w-full"
+          className="flex flex-col items-center gap-4 p-8 bg-slate-50 border border-slate-100 rounded-[2.5rem] hover:border-sepm-cyan transition-all group shadow-sm"
         >
           <div className="p-4 bg-sepm-cyan/10 text-sepm-cyan rounded-2xl group-hover:scale-110 transition-transform">
-            <Mail size={28} />
+            <Mail size={24} />
           </div>
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-sepm-cyan">Push Email</span>
+        </button>
+
+        <button 
+          onClick={async () => {
+            const doc = await generateInspectionPDF(inspection);
+            doc.save(`SEPM_Report_${inspection.workOrderNo}.pdf`);
+          }}
+          className="flex flex-col items-center gap-4 p-8 bg-slate-50 border border-slate-100 rounded-[2.5rem] hover:border-sepm-cyan transition-all group shadow-sm"
+        >
+          <div className="p-4 bg-sepm-cyan/10 text-sepm-cyan rounded-2xl group-hover:scale-110 transition-transform">
+            <Download size={24} />
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-sepm-cyan">Local PDF</span>
         </button>
       </div>
 

@@ -68,7 +68,7 @@ export async function saveDestinationUrl(url: string) {
 }
 
 export async function getDestinationUrl(): Promise<string> {
-  return await settingsStore.getItem('destination_url') || 'https://www.dropbox.com/scl/fo/8gywiw5gwrp83taoh1gy7/AODhd3zQ_0O39u9OjcQ1ON0?rlkey=qpr3velgtb351alo7byqs8z4d&st=1dk66rgi&dl=0';
+  return await settingsStore.getItem('destination_url') || '/SEPM_Lyft_Inspections';
 }
 
 export async function saveDropboxToken(token: string) {

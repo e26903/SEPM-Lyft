@@ -65,7 +65,7 @@ export function InspectionForm({ inspection, setInspection, onBack, onComplete }
     }
   }, [stepIndex]);
 
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<InspectionData>({
+  const { register, handleSubmit, watch, setValue, getValues, formState: { errors } } = useForm<InspectionData>({
     defaultValues: inspection
   });
 
@@ -80,9 +80,16 @@ export function InspectionForm({ inspection, setInspection, onBack, onComplete }
       setStatusMsg('Finalizing report...');
       
       try {
-        const destUrl = await getDestinationUrl();
+        const rawDest = await getDestinationUrl();
         const dbxToken = await getDropboxToken();
         
+        // Sanitize destination path - if it's a URL, ignore it and use root or extract simple folder
+        let cleanDest = '';
+        if (rawDest && !rawDest.startsWith('http')) {
+          cleanDest = rawDest.startsWith('/') ? rawDest : `/${rawDest}`;
+          if (cleanDest.endsWith('/')) cleanDest = cleanDest.slice(0, -1);
+        }
+
         // 1. Finalize the data
         const finalData = { ...formValues, status: 'submitted' as const, submittedAt: new Date().toISOString() };
         await saveInspection(finalData);
@@ -106,7 +113,7 @@ export function InspectionForm({ inspection, setInspection, onBack, onComplete }
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               pdfBase64: base64String,
-              fileName: destUrl ? `${destUrl}/${fileName}` : fileName,
+              fileName: cleanDest ? `${cleanDest}/${fileName}` : fileName,
               accessToken: dbxToken
             })
           });
@@ -122,10 +129,10 @@ export function InspectionForm({ inspection, setInspection, onBack, onComplete }
           // Fallback to manual download
           doc.save(fileName);
           
-          if (destUrl && destUrl.startsWith('http')) {
+          if (rawDest && rawDest.startsWith('http')) {
             setStatusMsg('Opening destination...');
             setTimeout(() => {
-              window.open(destUrl, '_blank');
+              window.open(rawDest, '_blank');
             }, 1000);
           }
         }
@@ -150,10 +157,10 @@ export function InspectionForm({ inspection, setInspection, onBack, onComplete }
     switch (currentStepId) {
       case 'general': return <GeneralInfoStep register={register} setValue={setValue} watch={watch} disabled={isReadOnly} />;
       case 'electrical': return <ElectricalStep register={register} disabled={isReadOnly} />;
-      case 'pumps': return <PumpsStep register={register} setValue={setValue} values={formValues} disabled={isReadOnly} />;
-      case 'wetwell': return <WetWellStep register={register} setValue={setValue} values={formValues} disabled={isReadOnly} />;
-      case 'controls': return <ControlsStep register={register} setValue={setValue} values={formValues} disabled={isReadOnly} />;
-      case 'service': return <ServiceStep register={register} disabled={isReadOnly} />;
+      case 'pumps': return <PumpsStep register={register} setValue={setValue} getValues={getValues} values={formValues} disabled={isReadOnly} />;
+      case 'wetwell': return <WetWellStep register={register} setValue={setValue} getValues={getValues} values={formValues} disabled={isReadOnly} />;
+      case 'controls': return <ControlsStep register={register} setValue={setValue} getValues={getValues} values={formValues} disabled={isReadOnly} />;
+      case 'service': return <ServiceStep register={register} setValue={setValue} getValues={getValues} values={formValues} disabled={isReadOnly} />;
       case 'review': return <ReviewStep values={formValues} register={register} disabled={isReadOnly} />;
       default: return null;
     }
@@ -293,18 +300,22 @@ function Select({ label, options, disabled, ...props }: any) {
 }
 
 function MultiImageUpload({ label, images, onAdd, onRemove, disabled }: { label: string; images: string[]; onAdd: (img: string) => void; onRemove: (index: number) => void; disabled?: boolean }) {
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (disabled) return;
     const files = e.target.files;
     if (!files) return;
     
-    Array.from(files).forEach((file: File) => {
+    for (const file of Array.from(files)) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        onAdd(reader.result as string);
-      };
+      const promise = new Promise<string>((resolve) => {
+        reader.onloadend = () => resolve(reader.result as string);
+      });
       reader.readAsDataURL(file);
-    });
+      const img = await promise;
+      onAdd(img);
+    }
+    // Clear input
+    e.target.value = '';
   };
 
   return (
@@ -527,7 +538,7 @@ function ElectricalStep({ register, disabled }: any) {
   );
 }
 
-function PumpEval({ id, index, register, condOptions, values, setValue, disabled }: any) {
+function PumpEval({ id, index, register, condOptions, values, setValue, getValues, disabled }: any) {
   const images = values?.[id]?.images || [];
 
   return (
@@ -542,8 +553,14 @@ function PumpEval({ id, index, register, condOptions, values, setValue, disabled
         <MultiImageUpload 
           label="Performance Media" 
           images={images}
-          onAdd={(img) => setValue(`${id}.images`, [...images, img])}
-          onRemove={(idx) => setValue(`${id}.images`, images.filter((_: any, i: number) => i !== idx))}
+          onAdd={(img) => {
+            const current = getValues(`${id}.images`) || [];
+            setValue(`${id}.images`, [...current, img], { shouldDirty: true });
+          }}
+          onRemove={(idx) => {
+            const current = getValues(`${id}.images`) || [];
+            setValue(`${id}.images`, current.filter((_: any, i: number) => i !== idx), { shouldDirty: true });
+          }}
           disabled={disabled}
         />
       </div>
@@ -551,13 +568,13 @@ function PumpEval({ id, index, register, condOptions, values, setValue, disabled
   );
 }
 
-function PumpsStep({ register, setValue, values, disabled }: any) {
+function PumpsStep({ register, setValue, getValues, values, disabled }: any) {
   const condOptions = [' - - - - - ', 'Good', 'Fair', 'Poor', 'N/A'];
   
   return (
     <div className="space-y-10">
-      <PumpEval id="pump1Evaluation" index={1} register={register} condOptions={condOptions} values={values} setValue={setValue} disabled={disabled} />
-      <PumpEval id="pump2Evaluation" index={2} register={register} condOptions={condOptions} values={values} setValue={setValue} disabled={disabled} />
+      <PumpEval id="pump1Evaluation" index={1} register={register} condOptions={condOptions} values={values} setValue={setValue} getValues={getValues} disabled={disabled} />
+      <PumpEval id="pump2Evaluation" index={2} register={register} condOptions={condOptions} values={values} setValue={setValue} getValues={getValues} disabled={disabled} />
       <FieldGroup title="Station Security Test">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-4">
@@ -566,8 +583,14 @@ function PumpsStep({ register, setValue, values, disabled }: any) {
             <MultiImageUpload 
               label="Visual Test Media" 
               images={values?.visualAlarmTest?.images || []}
-              onAdd={(img) => setValue('visualAlarmTest.images', [...(values?.visualAlarmTest?.images || []), img])}
-              onRemove={(idx) => setValue('visualAlarmTest.images', values?.visualAlarmTest?.images?.filter((_: any, i: number) => i !== idx) || [])}
+              onAdd={(img) => {
+                const current = getValues('visualAlarmTest.images') || [];
+                setValue('visualAlarmTest.images', [...current, img], { shouldDirty: true });
+              }}
+              onRemove={(idx) => {
+                const current = getValues('visualAlarmTest.images') || [];
+                setValue('visualAlarmTest.images', current.filter((_: any, i: number) => i !== idx), { shouldDirty: true });
+              }}
               disabled={disabled}
             />
           </div>
@@ -577,8 +600,14 @@ function PumpsStep({ register, setValue, values, disabled }: any) {
             <MultiImageUpload 
               label="Audible Test Media" 
               images={values?.audibleAlarmTest?.images || []}
-              onAdd={(img) => setValue('audibleAlarmTest.images', [...(values?.audibleAlarmTest?.images || []), img])}
-              onRemove={(idx) => setValue('audibleAlarmTest.images', values?.audibleAlarmTest?.images?.filter((_: any, i: number) => i !== idx) || [])}
+              onAdd={(img) => {
+                const current = getValues('audibleAlarmTest.images') || [];
+                setValue('audibleAlarmTest.images', [...current, img], { shouldDirty: true });
+              }}
+              onRemove={(idx) => {
+                const current = getValues('audibleAlarmTest.images') || [];
+                setValue('audibleAlarmTest.images', current.filter((_: any, i: number) => i !== idx), { shouldDirty: true });
+              }}
               disabled={disabled}
             />
           </div>
@@ -588,7 +617,7 @@ function PumpsStep({ register, setValue, values, disabled }: any) {
   );
 }
 
-function WetWellStep({ register, setValue, values, disabled }: any) {
+function WetWellStep({ register, setValue, getValues, values, disabled }: any) {
   const condOptions = [' - - - - - ', 'Good', 'Fair', 'Poor', 'N/A'];
   const fields = [
     { id: 'sideRails', label: 'Side Rails' },
@@ -615,8 +644,14 @@ function WetWellStep({ register, setValue, values, disabled }: any) {
           <MultiImageUpload 
             label="Structural Media Capture" 
             images={values?.wetWell?.images || []}
-            onAdd={(img) => setValue('wetWell.images', [...(values?.wetWell?.images || []), img])}
-            onRemove={(idx) => setValue('wetWell.images', values?.wetWell?.images?.filter((_: any, i: number) => i !== idx) || [])}
+            onAdd={(img) => {
+              const current = getValues('wetWell.images') || [];
+              setValue('wetWell.images', [...current, img], { shouldDirty: true });
+            }}
+            onRemove={(idx) => {
+              const current = getValues('wetWell.images') || [];
+              setValue('wetWell.images', current.filter((_: any, i: number) => i !== idx), { shouldDirty: true });
+            }}
             disabled={disabled}
           />
         </div>
@@ -625,7 +660,7 @@ function WetWellStep({ register, setValue, values, disabled }: any) {
   );
 }
 
-function ControlsStep({ register, setValue, values, disabled }: any) {
+function ControlsStep({ register, setValue, getValues, values, disabled }: any) {
   const condOptions = [' - - - - - ', 'Good', 'Fair', 'Poor', 'N/A'];
   const fields = [
     { id: 'boxCondition', label: 'Box Condition' },
@@ -652,8 +687,14 @@ function ControlsStep({ register, setValue, values, disabled }: any) {
         <MultiImageUpload 
           label="Enclosure Media Gallery" 
           images={values?.controlBox?.images || []}
-          onAdd={(img) => setValue('controlBox.images', [...(values?.controlBox?.images || []), img])}
-          onRemove={(idx) => setValue('controlBox.images', values?.controlBox?.images?.filter((_: any, i: number) => i !== idx) || [])}
+          onAdd={(img) => {
+            const current = getValues('controlBox.images') || [];
+            setValue('controlBox.images', [...current, img], { shouldDirty: true });
+          }}
+          onRemove={(idx) => {
+            const current = getValues('controlBox.images') || [];
+            setValue('controlBox.images', current.filter((_: any, i: number) => i !== idx), { shouldDirty: true });
+          }}
           disabled={disabled}
         />
       </div>
@@ -661,7 +702,7 @@ function ControlsStep({ register, setValue, values, disabled }: any) {
   );
 }
 
-function ServiceStep({ register, setValue, values, disabled }: any) {
+function ServiceStep({ register, setValue, getValues, values, disabled }: any) {
   return (
     <>
       <FieldGroup title="Manifest Info">
@@ -686,8 +727,14 @@ function ServiceStep({ register, setValue, values, disabled }: any) {
           <MultiImageUpload 
             label="Remote Alarm Status Photos" 
             images={values?.remoteAlarm?.images || []}
-            onAdd={(img) => setValue('remoteAlarm.images', [...(values?.remoteAlarm?.images || []), img])}
-            onRemove={(idx) => setValue('remoteAlarm.images', values?.remoteAlarm?.images?.filter((_: any, i: number) => i !== idx) || [])}
+            onAdd={(img) => {
+              const current = getValues('remoteAlarm.images') || [];
+              setValue('remoteAlarm.images', [...current, img], { shouldDirty: true });
+            }}
+            onRemove={(idx) => {
+              const current = getValues('remoteAlarm.images') || [];
+              setValue('remoteAlarm.images', current.filter((_: any, i: number) => i !== idx), { shouldDirty: true });
+            }}
             disabled={disabled}
           />
         </div>

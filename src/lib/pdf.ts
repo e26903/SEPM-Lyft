@@ -129,5 +129,69 @@ export async function generateInspectionPDF(data: InspectionData) {
     theme: 'grid'
   });
 
+  // Appendix: Images
+  const allImages: { label: string; images: string[] }[] = [
+    { label: 'Pump 1 Evaluation', images: data.pump1Evaluation.images },
+    { label: 'Pump 2 Evaluation', images: data.pump2Evaluation.images },
+    { label: 'Visual Alarm Test', images: data.visualAlarmTest.images },
+    { label: 'Audible Alarm Test', images: data.audibleAlarmTest.images },
+    { label: 'Wet Well Photos', images: data.wetWell.images },
+    { label: 'Control Box Photos', images: data.controlBox.images },
+    { label: 'Remote Alarm Photos', images: data.remoteAlarm.images },
+  ].filter(group => group.images && group.images.length > 0);
+
+  if (allImages.length > 0) {
+    doc.addPage();
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text('APPENDIX: SITE PHOTOS', 105, 20, { align: 'center' });
+    
+    let imgY = 30;
+    for (const group of allImages) {
+      if (imgY > 250) {
+        doc.addPage();
+        imgY = 20;
+      }
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text(group.label.toUpperCase(), 14, imgY);
+      imgY += 5;
+
+      let xOffset = 14;
+      const imgWidth = 60;
+      const imgHeight = 45;
+
+      for (const imgData of group.images) {
+        if (xOffset + imgWidth > 200) {
+          xOffset = 14;
+          imgY += imgHeight + 5;
+        }
+
+        if (imgY + imgHeight > 280) {
+          doc.addPage();
+          imgY = 20;
+          doc.text(group.label.toUpperCase() + ' (CONT.)', 14, imgY);
+          imgY += 5;
+          xOffset = 14;
+        }
+
+        try {
+          // Detect format from base64
+          let format = 'JPEG';
+          if (imgData.includes('image/png')) format = 'PNG';
+          if (imgData.includes('image/webp')) format = 'WEBP';
+          
+          doc.addImage(imgData, format, xOffset, imgY, imgWidth, imgHeight);
+        } catch (e) {
+          console.error("Error adding image to PDF:", e);
+        }
+        
+        xOffset += imgWidth + 5;
+      }
+      imgY += imgHeight + 15;
+    }
+  }
+
   return doc;
 }
