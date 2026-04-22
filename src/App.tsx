@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import brandingVideo from './assets/brand/brand.mp4';
+import brandingGif from './assets/brand/brand.gif';
+import brandingJpg from './assets/brand/brand.jpg';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -354,9 +357,9 @@ function LogoAnimation() {
   const logoRef = useRef<HTMLImageElement>(null);
 
   const sources = {
-    mp4: `/assets/brand/brand-v3.mp4`,
-    gif: `/assets/brand/brand-v3.gif`,
-    jpg: `/assets/brand/brand-v3.jpg`
+    mp4: brandingVideo,
+    gif: brandingGif,
+    jpg: brandingJpg
   };
 
   return (
