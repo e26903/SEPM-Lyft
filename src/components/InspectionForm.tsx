@@ -305,7 +305,7 @@ function MultiImageUpload({ label, images, onAdd, onRemove, disabled }: { label:
     const files = e.target.files;
     if (!files) return;
     
-    for (const file of Array.from(files)) {
+    for (const file of Array.from(files) as File[]) {
       const reader = new FileReader();
       const promise = new Promise<string>((resolve) => {
         reader.onloadend = () => resolve(reader.result as string);

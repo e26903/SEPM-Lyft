@@ -22,7 +22,8 @@ import {
   Mail,
   Settings as SettingsIcon,
   Upload,
-  Link2
+  Link2,
+  History
 } from 'lucide-react';
 import Papa from 'papaparse';
 import { format } from 'date-fns';
