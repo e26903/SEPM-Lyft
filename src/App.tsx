@@ -398,6 +398,8 @@ function LogoAnimation() {
           playsinline: 1,
           iv_load_policy: 3,
           enablejsapi: 1,
+          disablekb: 1,
+          fs: 0,
           origin: window.location.origin
         },
         events: {
@@ -427,27 +429,13 @@ function LogoAnimation() {
   }, [mediaLevel]);
 
   return (
-    <div className="relative w-full h-full flex items-center justify-center bg-white">
-      {/* 1. LAYER 0: THE SEAMLESS MASK (STATIC BRAND) */}
-      <div className={`absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-500 z-10 ${mediaActive ? 'opacity-0' : 'opacity-100'}`}>
-        <div className="relative p-2 transform scale-75 md:scale-90">
-           <div className="relative border-[6px] md:border-[8px] border-[#00e5ff] px-6 py-2 mb-2 bg-white">
-             <span className="text-4xl md:text-7xl font-[900] text-[#00e5ff] tracking-tighter italic uppercase leading-none" style={{ fontFamily: 'system-ui, sans-serif' }}>
-               SEPM
-             </span>
-           </div>
-           <div className="text-center">
-             <h2 className="text-5xl md:text-[100px] font-[1000] text-slate-900 tracking-[-0.08em] uppercase leading-[0.8]" style={{ fontFamily: 'system-ui, sans-serif' }}>
-               LYFT
-             </h2>
-           </div>
-        </div>
-      </div>
-
-      {/* 2. LAYER 1: THE VIDEO PLAYER */}
+    <div className="relative w-full h-full flex items-center justify-center bg-white overflow-hidden">
+      {/* THE VIDEO PLAYER (CLEAN FRAME MODE) */}
       <div className={`absolute inset-0 transition-opacity duration-1000 ${mediaActive ? 'opacity-100' : 'opacity-0'}`}>
         {mediaLevel === 0 && (
-          <div id="yt-player" className="w-full h-full pointer-events-none" />
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+            <div id="yt-player" className="w-[118%] h-[118%]" />
+          </div>
         )}
         {mediaLevel === 1 && (
           <img 
