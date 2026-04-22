@@ -61,8 +61,9 @@ async function startServer() {
     const distPath = path.join(process.cwd(), 'dist');
     const publicPath = path.join(process.cwd(), 'public');
 
-    // Serve static files from dist/ first (production build)
+    // Serve static files from dist/ (production build)
     app.use(express.static(distPath, {
+      maxAge: '1d',
       setHeaders: (res, filePath) => {
         if (filePath.endsWith('.mp4')) res.setHeader('Content-Type', 'video/mp4');
         if (filePath.endsWith('.gif')) res.setHeader('Content-Type', 'image/gif');

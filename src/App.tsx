@@ -43,6 +43,9 @@ import { InspectionForm } from './components/InspectionForm';
 import { generateInspectionPDF } from './lib/pdf';
 import { exportToCSV } from './lib/csv';
 import { Site } from './data/sites';
+import introVideo from './assets/intro.mp4';
+import introGif from './assets/intro.gif';
+import introJpg from './assets/intro.jpg';
 
 // Screens
 type Screen = 'welcome' | 'dashboard' | 'form' | 'success' | 'reports' | 'settings';
@@ -353,9 +356,6 @@ function LogoAnimation() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const logoRef = useRef<HTMLImageElement>(null);
 
-  // Auto-advance if media fails
-  const assetVersion = "2026.BRAND.V10";
-
   return (
     <div className="relative w-64 h-64 md:w-96 md:h-96 flex items-center justify-center mx-auto">
       {/* 1. LAYER 0: THE INSTANT CODE-MARK (ALWAYS THERE AS BACKUP) */}
@@ -385,8 +385,8 @@ function LogoAnimation() {
       <div className={`absolute inset-0 transition-opacity duration-1000 ${mediaActive ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
         {mediaLevel === 0 && (
           <video 
-            ref={videoRef}
-            src={`/brand-final/sepm-v10.mp4?v=${assetVersion}`}
+            ref= {videoRef}
+            src={introVideo}
             autoPlay muted loop playsInline preload="auto"
             className="w-full h-full object-contain"
             onPlaying={() => setMediaActive(true)}
@@ -403,7 +403,7 @@ function LogoAnimation() {
         {mediaLevel === 1 && (
           <img 
             ref={logoRef}
-            src={`/brand-final/sepm-v10.gif?v=${assetVersion}`} 
+            src={introGif} 
             alt="SEPM Animation"
             className="w-full h-full object-contain"
             onLoad={() => setMediaActive(true)}
@@ -414,7 +414,7 @@ function LogoAnimation() {
         {mediaLevel === 2 && (
           <img 
             ref={logoRef}
-            src={`/brand-final/sepm-v10.jpg?v=${assetVersion}`} 
+            src={introJpg} 
             alt="SEPM Static"
             className="w-full h-full object-contain"
             onLoad={() => setMediaActive(true)}
