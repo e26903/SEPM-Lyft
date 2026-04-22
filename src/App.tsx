@@ -348,115 +348,74 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
 }
 
 function LogoAnimation() {
-  const [errorLevel, setErrorLevel] = useState(0); // 0: mp4, 1: gif, 2: jpg, 3: fallback
-  const [isLoaded, setIsLoaded] = useState(false);
-  const logoRef = useRef<HTMLImageElement>(null);
+  const [mediaLevel, setMediaLevel] = useState(0); // 0: mp4, 1: gif, 2: jpg, 3: none
+  const [mediaActive, setMediaActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const logoRef = useRef<HTMLImageElement>(null);
 
-  // Initial timeout ONLY for the video player (the most likely to stall)
-  useEffect(() => {
-    if (errorLevel !== 0 || isLoaded) return;
-
-    const timer = setTimeout(() => {
-      console.warn("Video timed out, jumping to GIF");
-      setErrorLevel(1);
-    }, 5000);
-
-    return () => clearTimeout(timer);
-  }, [errorLevel, isLoaded]);
-
-  const handleImageLoad = () => {
-    if (logoRef.current && logoRef.current.naturalWidth > 0) {
-      console.log(`Asset ${errorLevel} rendered successfully`);
-      setIsLoaded(true);
-    }
-  };
-
-  const assetVersion = "20260422.7";
+  // Auto-advance if media fails
+  const assetVersion = "20260422.ULTIMATE";
 
   return (
-    <div className="relative w-64 h-64 md:w-96 md:h-96 flex flex-col items-center justify-center mx-auto">
-      {errorLevel === 0 && (
-        <video 
-          ref={videoRef}
-          src={`/assets/v1/intro.mp4?v=${assetVersion}`}
-          autoPlay 
-          muted 
-          loop 
-          playsInline
-          preload="auto"
-          className="w-full h-full object-contain"
-          onPlaying={() => setIsLoaded(true)}
-          onError={() => {
-            console.error("Video failed - moving to GIF");
-            setErrorLevel(1);
-          }}
-        />
-      )}
-
-      {errorLevel === 1 && (
-        <img 
-          ref={logoRef}
-          src={`/assets/v1/intro.gif?v=${assetVersion}`} 
-          alt="SEPM Lyft Animation"
-          onError={() => {
-            console.error("GIF failed - moving to JPG");
-            setErrorLevel(2);
-          }}
-          onLoad={handleImageLoad}
-          className="w-full h-full object-contain"
-          referrerPolicy="no-referrer"
-        />
-      )}
-      
-      {errorLevel === 2 && (
-        <img 
-          ref={logoRef}
-          src={`/assets/v1/intro.jpg?v=${assetVersion}`} 
-          alt="SEPM Lyft Logo"
-          onError={() => {
-            console.error("JPG failed - moving to CODE");
-            setErrorLevel(3);
-          }}
-          onLoad={handleImageLoad}
-          className="w-full h-full object-contain"
-          referrerPolicy="no-referrer"
-        />
-      )}
-
-      {errorLevel >= 3 && (
-        <div className="relative flex flex-col items-center justify-center text-center animate-in fade-in zoom-in duration-1000">
-          <div className="relative p-2">
-            {/* Ultra-High Fidelity SVG Brand Reconstruction */}
-            <svg viewBox="0 0 500 250" className="w-72 h-36 md:w-[450px] md:h-56 drop-shadow-2xl filter brightness-110">
-              <defs>
-                <clipPath id="textClip">
-                  <text x="50%" y="85" textAnchor="middle" fontStyle="italic" fontWeight="900" fontSize="100" fontFamily="system-ui, -apple-system, sans-serif" letterSpacing="-4">
-                    SEPM
-                  </text>
-                </clipPath>
-              </defs>
-              
-              {/* Outer Cyan Box - Brighter & Bolder */}
-              <rect x="10" y="10" width="480" height="110" fill="none" stroke="#22d3ee" strokeWidth="12" />
-              
-              {/* SEPM Main Text */}
-              <text x="50%" y="95" textAnchor="middle" fontStyle="italic" fontWeight="900" fontSize="90" fontFamily="system-ui, -apple-system, sans-serif" fill="#22d3ee" letterSpacing="-5">
-                SEPM
-              </text>
-              
-              {/* LYFT Main Text - Extra Bold / Heavy Subtitle Style */}
-              <text x="50%" y="220" textAnchor="middle" fontWeight="950" fontSize="130" fontFamily="system-ui, -apple-system, sans-serif" fill="#0f172a" letterSpacing="-8">
-                LYFT
-              </text>
-            </svg>
-            <div className="absolute -right-8 -bottom-8 w-20 h-20 bg-emerald-400 rounded-full blur-3xl opacity-30 animate-pulse" />
-          </div>
-          <p className="mt-8 text-[11px] md:text-sm font-mono uppercase tracking-[0.6em] text-slate-500 font-bold opacity-80">
-            Digital Inspection Manifest
-          </p>
+    <div className="relative w-64 h-64 md:w-96 md:h-96 flex items-center justify-center mx-auto">
+      {/* 1. LAYER 0: THE INSTANT CODE-MARK (ALWAYS THERE AS BACKUP) */}
+      <div className={`absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-700 ${mediaActive ? 'opacity-0' : 'opacity-100'}`}>
+        <div className="relative p-2 transform scale-75 md:scale-100">
+           {/* Pixel-Perfect SEPM Box */}
+           <div className="relative border-[6px] md:border-[10px] border-[#00e5ff] px-8 py-3 mb-2 md:mb-4 bg-white/5">
+             <span className="text-6xl md:text-9xl font-[900] text-[#00e5ff] tracking-tighter italic uppercase leading-none" style={{ fontFamily: 'system-ui, sans-serif' }}>
+               SEPM
+             </span>
+           </div>
+           {/* Massive LYFT Text */}
+           <div className="text-center">
+             <h2 className="text-7xl md:text-[140px] font-[1000] text-slate-900 tracking-[-0.08em] uppercase leading-[0.8]" style={{ fontFamily: 'system-ui, sans-serif' }}>
+               LYFT
+             </h2>
+           </div>
+           {/* Brand Glow */}
+           <div className="absolute -right-12 -bottom-12 w-32 h-32 bg-emerald-400 rounded-full blur-[80px] opacity-40 animate-pulse" />
         </div>
-      )}
+        <p className="mt-8 text-[10px] md:text-sm font-mono font-bold uppercase tracking-[0.5em] text-slate-400 opacity-60">
+          Digital Inspection Manifest
+        </p>
+      </div>
+
+      {/* 2. LAYER 1: THE MEDIA (VIDEO -> GIF -> JPG) */}
+      <div className={`absolute inset-0 transition-opacity duration-1000 ${mediaActive ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
+        {mediaLevel === 0 && (
+          <video 
+            ref={videoRef}
+            src={`/assets/v1/intro.mp4?v=${assetVersion}`}
+            autoPlay muted loop playsInline preload="auto"
+            className="w-full h-full object-contain"
+            onPlaying={() => setMediaActive(true)}
+            onError={() => setMediaLevel(1)}
+          />
+        )}
+        {mediaLevel === 1 && (
+          <img 
+            ref={logoRef}
+            src={`/assets/v1/intro.gif?v=${assetVersion}`} 
+            alt="SEPM Animation"
+            className="w-full h-full object-contain"
+            onLoad={() => setMediaActive(true)}
+            onError={() => setMediaLevel(2)}
+            referrerPolicy="no-referrer"
+          />
+        )}
+        {mediaLevel === 2 && (
+          <img 
+            ref={logoRef}
+            src={`/assets/v1/intro.jpg?v=${assetVersion}`} 
+            alt="SEPM Static"
+            className="w-full h-full object-contain"
+            onLoad={() => setMediaActive(true)}
+            onError={() => setMediaLevel(3)}
+            referrerPolicy="no-referrer"
+          />
+        )}
+      </div>
     </div>
   );
 }
