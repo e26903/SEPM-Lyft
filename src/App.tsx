@@ -353,12 +353,10 @@ function LogoAnimation() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const logoRef = useRef<HTMLImageElement>(null);
 
-  const [cacheBuster] = useState(() => Date.now().toString());
-  
   const sources = {
-    mp4: `/brand_assets/video.mp4?v=${cacheBuster}`,
-    gif: `/brand_assets/anim.gif?v=${cacheBuster}`,
-    jpg: `/brand_assets/static.jpg?v=${cacheBuster}`
+    mp4: `/branding-v2.mp4`,
+    gif: `/branding-v2.gif`,
+    jpg: `/branding-v2.jpg`
   };
 
   return (

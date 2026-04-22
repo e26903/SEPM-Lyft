@@ -1,11 +1,14 @@
 {
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/((?!api|assets|brand_assets).*)", "destination": "/index.html" }
+    { "source": "/branding-v2.mp4", "destination": "/branding-v2.mp4" },
+    { "source": "/branding-v2.gif", "destination": "/branding-v2.gif" },
+    { "source": "/branding-v2.jpg", "destination": "/branding-v2.jpg" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
     {
-      "source": "/brand_assets/video.mp4",
+      "source": "/branding-v2.mp4",
       "headers": [
         { "key": "Content-Type", "value": "video/mp4" },
         { "key": "Accept-Ranges", "value": "bytes" },
@@ -14,7 +17,7 @@
       ]
     },
     {
-      "source": "/brand_assets/anim.gif",
+      "source": "/branding-v2.gif",
       "headers": [
         { "key": "Content-Type", "value": "image/gif" },
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
@@ -22,7 +25,7 @@
       ]
     },
     {
-      "source": "/brand_assets/static.jpg",
+      "source": "/branding-v2.jpg",
       "headers": [
         { "key": "Content-Type", "value": "image/jpeg" },
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },

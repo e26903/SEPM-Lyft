@@ -81,6 +81,19 @@ async function startServer() {
       const distFilePath = path.join(distPath, cleanPath);
       const publicFilePath = path.join(publicPath, cleanPath);
       
+      // PRIORITY: Specific Branding Assets v2
+      if (cleanPath === '/branding-v2.mp4' || cleanPath === '/branding-v2.gif' || cleanPath === '/branding-v2.jpg') {
+        const targetPath = fs.existsSync(distFilePath) ? distFilePath : publicFilePath;
+        if (fs.existsSync(targetPath)) {
+          if (cleanPath.endsWith('.mp4')) res.setHeader('Content-Type', 'video/mp4');
+          if (cleanPath.endsWith('.gif')) res.setHeader('Content-Type', 'image/gif');
+          if (cleanPath.endsWith('.jpg')) res.setHeader('Content-Type', 'image/jpeg');
+          res.setHeader('Accept-Ranges', 'bytes');
+          res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+          return res.sendFile(targetPath);
+        }
+      }
+
       if (fs.existsSync(distFilePath) && fs.lstatSync(distFilePath).isFile()) {
         const ext = path.extname(cleanPath).toLowerCase();
         if (ext === '.mp4') res.setHeader('Content-Type', 'video/mp4');
