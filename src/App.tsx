@@ -357,9 +357,9 @@ function LogoAnimation() {
   const [cacheBuster] = useState(() => Date.now().toString());
   
   const sources = {
-    mp4: `/branding/brand.mp4?v=${cacheBuster}`,
-    gif: `/branding/brand.gif?v=${cacheBuster}`,
-    jpg: `/branding/brand.jpg?v=${cacheBuster}`
+    mp4: `/brand-stream/video.mp4?v=${cacheBuster}`,
+    gif: `/brand-stream/anim.gif?v=${cacheBuster}`,
+    jpg: `/brand-stream/static.jpg?v=${cacheBuster}`
   };
 
   return (
