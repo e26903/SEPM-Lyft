@@ -385,23 +385,23 @@ function LogoAnimation() {
           playsInline
           className="w-full h-full object-contain"
           onError={() => {
-            console.error("logo.mp4 failed to load");
+            console.error("brand-video.mp4 failed to load");
             setErrorLevel(1);
           }}
-          onCanPlay={() => console.log("logo.mp4 ready")}
+          onCanPlay={() => console.log("brand-video.mp4 ready")}
         >
-          <source src="/logo.mp4" type="video/mp4" />
+          <source src="/brand-video.mp4" type="video/mp4" />
         </video>
       )}
 
       {errorLevel === 1 && (
         <img 
           ref={logoRef}
-          src="/logo.gif" 
+          src="/brand-anim.gif" 
           alt="SEPM Lyft Animation"
           referrerPolicy="no-referrer"
           onError={() => {
-            console.error("logo.gif failed to load");
+            console.error("brand-anim.gif failed to load");
             setErrorLevel(2);
           }}
           onLoad={handleLoad}
@@ -412,11 +412,11 @@ function LogoAnimation() {
       {errorLevel === 2 && (
         <img 
           ref={logoRef}
-          src="/logo.jpg" 
+          src="/brand-static.jpg" 
           alt="SEPM Lyft Logo"
           referrerPolicy="no-referrer"
           onError={() => {
-            console.error("logo.jpg failed to load");
+            console.error("brand-static.jpg failed to load");
             setErrorLevel(3);
           }}
           onLoad={handleLoad}
