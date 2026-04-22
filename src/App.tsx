@@ -350,18 +350,30 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
 function LogoAnimation() {
   const [errorLevel, setErrorLevel] = useState(0); // 0: gif, 1: jpg, 2: text
 
+  // Safety timeout: if no image loads within 3s, fallback to text
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (errorLevel < 2) {
+        console.warn("Logo loading timed out, falling back to text logo");
+        setErrorLevel(2);
+      }
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [errorLevel]);
+
   return (
-    <div className="relative w-64 h-64 md:w-96 md:h-96 flex flex-col items-center justify-center">
+    <div className="relative w-64 h-64 md:w-96 md:h-96 flex flex-col items-center justify-center mx-auto">
       {errorLevel === 0 && (
         <img 
           src="/logo.gif" 
           alt="SEPM Lyft Animation"
-          onError={() => setErrorLevel(1)}
-          className="w-full h-full object-contain"
-          onLoad={(e) => {
-            // Check if it's an empty or broken file if needed, 
-            // though onError usually handles most issues.
+          referrerPolicy="no-referrer"
+          onError={() => {
+            console.error("logo.gif failed to load");
+            setErrorLevel(1);
           }}
+          onLoad={() => console.log("logo.gif loaded successfully")}
+          className="w-full h-full object-contain"
         />
       )}
       
@@ -369,13 +381,18 @@ function LogoAnimation() {
         <img 
           src="/logo.jpg" 
           alt="SEPM Lyft Logo"
-          onError={() => setErrorLevel(2)}
+          referrerPolicy="no-referrer"
+          onError={() => {
+            console.error("logo.jpg failed to load");
+            setErrorLevel(2);
+          }}
+          onLoad={() => console.log("logo.jpg loaded successfully")}
           className="w-full h-full object-contain"
         />
       )}
 
       {errorLevel === 2 && (
-        <div className="flex flex-col items-center justify-center text-center space-y-2">
+        <div className="flex flex-col items-center justify-center text-center space-y-2 py-10 animate-in fade-in duration-1000">
           <h1 className="text-6xl md:text-8xl font-black text-sepm-cyan tracking-tighter leading-none uppercase italic border-4 border-sepm-cyan px-4 py-1">
             SEPM
           </h1>
