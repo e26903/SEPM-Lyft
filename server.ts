@@ -53,53 +53,6 @@ async function startServer() {
 
   const publicPath = path.join(process.cwd(), 'public');
 
-  // SPECIAL PROXIED ROUTE FOR BRAND MEDIA - BYPASSES ALL CACHING AND FORCES CORRECT STREAMING
-  // Available in both dev and production
-  app.get('/brand-stream/:filename', (req, res) => {
-    const filename = req.params.filename;
-    const filePath = path.join(publicPath, 'brand_assets', filename);
-    
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).send('Not Found');
-    }
-
-    const stat = fs.statSync(filePath);
-    const fileSize = stat.size;
-    const range = req.headers.range;
-
-    const ext = path.extname(filename).toLowerCase();
-    let contentType = 'application/octet-stream';
-    if (ext === '.mp4') contentType = 'video/mp4';
-    if (ext === '.gif') contentType = 'image/gif';
-    if (ext === '.jpg' || ext === '.jpeg') contentType = 'image/jpeg';
-
-    if (range) {
-      const parts = range.replace(/bytes=/, "").split("-");
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-      const chunksize = (end - start) + 1;
-      const file = fs.createReadStream(filePath, { start, end });
-      const head = {
-        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-        'Accept-Ranges': 'bytes',
-        'Content-Length': chunksize,
-        'Content-Type': contentType,
-        'Cache-Control': 'no-cache'
-      };
-      res.writeHead(206, head);
-      file.pipe(res);
-    } else {
-      const head = {
-        'Content-Length': fileSize,
-        'Content-Type': contentType,
-        'Accept-Ranges': 'bytes',
-        'Cache-Control': 'no-cache'
-      };
-      res.writeHead(200, head);
-      fs.createReadStream(filePath).pipe(res);
-    }
-  });
-
   // Vite integration
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -123,6 +76,33 @@ async function startServer() {
     app.use(express.static(publicPath));
 
     app.get('*', (req, res) => {
+      // Remove query string for file check
+      const cleanPath = req.path.split('?')[0];
+      const distFilePath = path.join(distPath, cleanPath);
+      const publicFilePath = path.join(publicPath, cleanPath);
+      
+      if (fs.existsSync(distFilePath) && fs.lstatSync(distFilePath).isFile()) {
+        const ext = path.extname(cleanPath).toLowerCase();
+        if (ext === '.mp4') res.setHeader('Content-Type', 'video/mp4');
+        if (ext === '.gif') res.setHeader('Content-Type', 'image/gif');
+        if (ext === '.jpg' || ext === '.jpeg') res.setHeader('Content-Type', 'image/jpeg');
+        
+        // Add streaming headers
+        res.setHeader('Accept-Ranges', 'bytes');
+        return res.sendFile(distFilePath);
+      }
+
+      if (fs.existsSync(publicFilePath) && fs.lstatSync(publicFilePath).isFile()) {
+        const ext = path.extname(cleanPath).toLowerCase();
+        if (ext === '.mp4') res.setHeader('Content-Type', 'video/mp4');
+        if (ext === '.gif') res.setHeader('Content-Type', 'image/gif');
+        if (ext === '.jpg' || ext === '.jpeg') res.setHeader('Content-Type', 'image/jpeg');
+        
+        // Add streaming headers
+        res.setHeader('Accept-Ranges', 'bytes');
+        return res.sendFile(publicFilePath);
+      }
+
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

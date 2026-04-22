@@ -353,13 +353,12 @@ function LogoAnimation() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const logoRef = useRef<HTMLImageElement>(null);
 
-  // Aggressive session-based cache-buster to ensure the browser ignores 0-byte caches
   const [cacheBuster] = useState(() => Date.now().toString());
   
   const sources = {
-    mp4: `/brand-stream/video.mp4?v=${cacheBuster}`,
-    gif: `/brand-stream/anim.gif?v=${cacheBuster}`,
-    jpg: `/brand-stream/static.jpg?v=${cacheBuster}`
+    mp4: `/brand_assets/video.mp4?v=${cacheBuster}`,
+    gif: `/brand_assets/anim.gif?v=${cacheBuster}`,
+    jpg: `/brand_assets/static.jpg?v=${cacheBuster}`
   };
 
   return (
