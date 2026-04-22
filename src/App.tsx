@@ -354,7 +354,7 @@ function LogoAnimation() {
   const logoRef = useRef<HTMLImageElement>(null);
 
   // Auto-advance if media fails
-  const assetVersion = "20260422.ULTIMATE";
+  const assetVersion = "2026.FINAL.ULTIMATE";
 
   return (
     <div className="relative w-64 h-64 md:w-96 md:h-96 flex items-center justify-center mx-auto">
@@ -386,17 +386,24 @@ function LogoAnimation() {
         {mediaLevel === 0 && (
           <video 
             ref={videoRef}
-            src={`/assets/v1/intro.mp4?v=${assetVersion}`}
+            src={`/static-brand/intro.mp4?v=${assetVersion}`}
             autoPlay muted loop playsInline preload="auto"
             className="w-full h-full object-contain"
             onPlaying={() => setMediaActive(true)}
-            onError={() => setMediaLevel(1)}
+            onError={() => {
+              const code = videoRef.current?.error?.code;
+              // Ignore ABORTED (1) as it happens normally during buffering/range requests
+              if (code && code > 1) {
+                console.error("Fatal Video Error - moving to GIF", code);
+                setMediaLevel(1);
+              }
+            }}
           />
         )}
         {mediaLevel === 1 && (
           <img 
             ref={logoRef}
-            src={`/assets/v1/intro.gif?v=${assetVersion}`} 
+            src={`/static-brand/intro.gif?v=${assetVersion}`} 
             alt="SEPM Animation"
             className="w-full h-full object-contain"
             onLoad={() => setMediaActive(true)}
@@ -407,7 +414,7 @@ function LogoAnimation() {
         {mediaLevel === 2 && (
           <img 
             ref={logoRef}
-            src={`/assets/v1/intro.jpg?v=${assetVersion}`} 
+            src={`/static-brand/intro.jpg?v=${assetVersion}`} 
             alt="SEPM Static"
             className="w-full h-full object-contain"
             onLoad={() => setMediaActive(true)}
