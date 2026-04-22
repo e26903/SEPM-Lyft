@@ -1,15 +1,33 @@
 {
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/((?!api|assets|brand\\.).*)", "destination": "/index.html" }
+    { "source": "/branding/(.*)", "destination": "/branding/$1" },
+    { "source": "/((?!api|assets|branding).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
-      "source": "/brand.(mp4|gif|jpg)",
+      "source": "/branding/brand.mp4",
       "headers": [
+        { "key": "Content-Type", "value": "video/mp4" },
+        { "key": "Accept-Ranges", "value": "bytes" },
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Accept-Ranges", "value": "bytes" }
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
+      ]
+    },
+    {
+      "source": "/branding/brand.gif",
+      "headers": [
+        { "key": "Content-Type", "value": "image/gif" },
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
+      ]
+    },
+    {
+      "source": "/branding/brand.jpg",
+      "headers": [
+        { "key": "Content-Type", "value": "image/jpeg" },
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
       ]
     },
     {

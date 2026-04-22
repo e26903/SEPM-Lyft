@@ -78,6 +78,7 @@ async function startServer() {
       // Remove query string for file check
       const cleanPath = req.path.split('?')[0];
       const distFilePath = path.join(distPath, cleanPath);
+      const brandingFilePath = path.join(publicPath, cleanPath);
       
       if (fs.existsSync(distFilePath) && fs.lstatSync(distFilePath).isFile()) {
         const ext = path.extname(cleanPath).toLowerCase();
@@ -88,6 +89,17 @@ async function startServer() {
         // Add streaming headers
         res.setHeader('Accept-Ranges', 'bytes');
         return res.sendFile(distFilePath);
+      }
+
+      if (fs.existsSync(brandingFilePath) && fs.lstatSync(brandingFilePath).isFile()) {
+        const ext = path.extname(cleanPath).toLowerCase();
+        if (ext === '.mp4') res.setHeader('Content-Type', 'video/mp4');
+        if (ext === '.gif') res.setHeader('Content-Type', 'image/gif');
+        if (ext === '.jpg' || ext === '.jpeg') res.setHeader('Content-Type', 'image/jpeg');
+        
+        // Add streaming headers
+        res.setHeader('Accept-Ranges', 'bytes');
+        return res.sendFile(brandingFilePath);
       }
 
       res.sendFile(path.join(distPath, 'index.html'));
