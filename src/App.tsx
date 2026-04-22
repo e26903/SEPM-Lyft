@@ -387,26 +387,19 @@ function LogoAnimation() {
         </p>
       </div>
 
-      {/* 2. LAYER 1: THE MEDIA (VIDEO -> GIF -> JPG) */}
+      {/* 2. LAYER 1: THE MEDIA (YOUTUBE -> GIF -> JPG) */}
       <div className={`absolute inset-0 transition-opacity duration-1000 ${mediaActive ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
         {mediaLevel === 0 && (
-          <video 
-            ref={videoRef}
-            src={sources.mp4}
-            autoPlay muted loop playsInline preload="auto"
-            className="w-full h-full object-contain"
-            onPlaying={() => setMediaActive(true)}
-            onError={() => {
-              const video = videoRef.current;
-              const error = video?.error;
-              console.error("Fatal Video Error:", {
-                code: error?.code,
-                message: error?.message,
-                src: sources.mp4
-              });
-              setMediaLevel(1);
-            }}
-          />
+          <div className="w-full h-full relative overflow-hidden pointer-events-none">
+            <iframe
+              className="absolute top-1/2 left-1/2 w-[150%] h-[150%] -translate-x-1/2 -translate-y-1/2 object-cover"
+              src="https://www.youtube.com/embed/r6jjV_6L1Ws?autoplay=1&mute=1&loop=1&playlist=r6jjV_6L1Ws&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&enablejsapi=1"
+              allow="autoplay; encrypted-media"
+              onLoad={() => setMediaActive(true)}
+              onError={() => setMediaLevel(1)}
+              title="SEPM Branding"
+            />
+          </div>
         )}
         {mediaLevel === 1 && (
           <img 
