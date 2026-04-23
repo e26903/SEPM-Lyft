@@ -214,6 +214,12 @@ export async function addAuthorizedUser(email: string) {
   });
 }
 
+// Function to handle programmatic user creation would usually be done via Firebase Admin SDK
+// However, since we are client-side, we can only create the currently logged in user.
+// The best approach here is for the admin to use the Firebase Console for password management,
+// OR for the technician to "Sign Up" if we allow it.
+// For now, we will stick to the Allowlist + Password Reset flow.
+
 export async function removeAuthorizedUser(email: string) {
   await deleteDoc(doc(db, 'authorized_users', email));
 }

@@ -50,7 +50,16 @@ import {
   addAuthorizedUser,
   removeAuthorizedUser
 } from './lib/storage';
-import { auth, googleProvider, signInWithPopup, onAuthStateChanged, User } from './lib/firebase';
+import { 
+  auth, 
+  googleProvider, 
+  signInWithPopup, 
+  onAuthStateChanged, 
+  User,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail
+} from './lib/firebase';
 import { InspectionForm } from './components/InspectionForm';
 import { generateInspectionPDF } from './lib/pdf';
 import { exportToCSV } from './lib/csv';
@@ -335,12 +344,60 @@ export default function App() {
 // --- Screens ---
 
 function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
-  const handleLogin = async () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loginMode, setLoginMode] = useState<'options' | 'email' | 'register'>('options');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleGoogleLogin = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login failed:", error);
-      alert("Authentication failed. Please try again.");
+      if (error.code === 'auth/popup-blocked') {
+        alert("The login popup was blocked by your browser. Please allow popups for this site and try again.");
+      } else if (error.code === 'auth/unauthorized-domain') {
+        alert("This domain is not authorized for login. If you are using a new URL (like Vercel), it must be added to the Authorized Domains in the Firebase Console.");
+      } else {
+        alert(`Authentication failed: ${error.message || 'Please try again.'}`);
+      }
+    }
+  };
+  
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) return;
+    
+    setIsSubmitting(true);
+    try {
+      if (loginMode === 'register') {
+        await createUserWithEmailAndPassword(auth, email.trim(), password);
+        alert("Account created successfully!");
+      } else {
+        await signInWithEmailAndPassword(auth, email.trim(), password);
+      }
+    } catch (error: any) {
+      console.error("Auth failed:", error);
+      if (error.code === 'auth/user-not-found') {
+        alert("No account found with this email. Please check your spelling or register if you are pre-authorized.");
+      } else {
+        alert(`Error: ${error.message}`);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      alert("Please enter your email address first.");
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      alert("Password reset email sent. Please check your inbox.");
+    } catch (error: any) {
+      alert(`Error: ${error.message}`);
     }
   };
 
@@ -351,51 +408,147 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
       initial={{ opacity: 0 }} 
       animate={{ opacity: 1 }} 
       exit={{ opacity: 0 }}
-      className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-slate-50"
+      className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-slate-50 overflow-y-auto"
     >
-      <div className="w-full max-w-2xl mb-12">
+      <div className="w-full max-w-2xl mb-8">
         <div className="aspect-video shadow-2xl rounded-2xl overflow-hidden bg-black border border-slate-200">
            <LogoAnimation />
         </div>
       </div>
       
-      {user ? (
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={onStart}
-          className="px-12 py-4 bg-sepm-cyan hover:bg-sepm-cyan/90 text-white font-black rounded-full text-lg shadow-2xl shadow-sepm-cyan/30 transition-all uppercase tracking-[0.2em] mb-12"
-        >
-          Enter Portal
-        </motion.button>
-      ) : (
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={handleLogin}
-          className="px-12 py-4 bg-slate-900 hover:bg-slate-800 text-white font-black rounded-full text-lg shadow-2xl shadow-slate-900/30 transition-all uppercase tracking-[0.2em] mb-12 flex items-center justify-center gap-4"
-        >
-          <Mail size={22} /> Login
-        </motion.button>
-      )}
-
-      <div className="space-y-4 pt-12 border-t border-white/5 opacity-40">
-        <p className="text-slate-900 text-[10px] font-bold tracking-[0.4em] uppercase">
-          SEPM Construction & Maintenance
-        </p>
-        {!user && (
-          <div className="pt-2">
-            <a 
-              href="mailto:Ruth.Haas@sepmfix.com?subject=Access%20Request%20-%20SEPM%20Lyft%20Portal&body=Hello,%20I%20would%20like%20to%20request%20access%20to%20the%20SEPM%20Lyft%20Operational%20Portal.%0A%0AEmail:%20"
-              className="text-[10px] text-sepm-cyan font-black uppercase tracking-widest hover:underline"
+      <div className="w-full max-w-sm space-y-6 pb-12">
+        {user ? (
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">Signed In As</p>
+              <p className="font-bold text-slate-900 truncate">{user.email}</p>
+            </div>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={onStart}
+              className="w-full py-5 bg-sepm-cyan text-white font-black rounded-full text-lg shadow-2xl shadow-sepm-cyan/30 transition-all uppercase tracking-[0.2em]"
             >
-              Request Authorization
-            </a>
+              Enter Portal
+            </motion.button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {loginMode === 'options' ? (
+              <div className="space-y-3">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleGoogleLogin}
+                  className="w-full py-5 bg-slate-900 text-white font-black rounded-full text-xs shadow-xl shadow-slate-900/10 transition-all uppercase tracking-[0.2em] flex items-center justify-center gap-4"
+                >
+                  <Mail size={18} /> Stakeholder Login (Google)
+                </motion.button>
+                
+                <div className="relative py-4">
+                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-slate-200" />
+                  <span className="relative bg-slate-50 px-4 text-[10px] font-black text-slate-300 uppercase tracking-widest">or</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setLoginMode('email')}
+                    className="py-5 bg-white border border-slate-200 text-slate-600 font-black rounded-3xl text-xs transition-all uppercase tracking-[0.1em] flex items-center justify-center gap-2"
+                  >
+                    Login
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setLoginMode('register')}
+                    className="py-5 bg-sepm-cyan/10 border border-sepm-cyan/20 text-sepm-cyan font-black rounded-3xl text-xs transition-all uppercase tracking-[0.1em] flex items-center justify-center gap-2"
+                  >
+                    Register
+                  </motion.button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleEmailLogin} className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="space-y-4 bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-xl">
+                  <div className="text-left mb-6">
+                    <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">{loginMode === 'register' ? 'Create Account' : 'Portal Sign In'}</h3>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Authorized Personnel Only</p>
+                  </div>
+
+                  <div className="space-y-2 text-left">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Email Address</label>
+                    <input 
+                      type="email"
+                      required
+                      placeholder="name@company.com"
+                      className="w-full bg-slate-50 border border-slate-100 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2 text-left">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Password</label>
+                    <input 
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      className="w-full bg-slate-50 border border-slate-100 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                  </div>
+                  <button 
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full py-5 bg-sepm-cyan text-white rounded-3xl font-black uppercase tracking-widest text-xs hover:brightness-110 shadow-lg shadow-sepm-cyan/20 disabled:opacity-50 transition-all mt-4"
+                  >
+                    {isSubmitting ? 'Verifying Authorization...' : (loginMode === 'register' ? 'Initialize Account' : 'Enter Portal')}
+                  </button>
+                  
+                  <div className="flex justify-between items-center px-4 pt-4">
+                    {loginMode === 'email' && (
+                      <button 
+                        type="button"
+                        onClick={handleForgotPassword}
+                        className="text-[10px] text-slate-400 font-bold uppercase tracking-widest hover:text-sepm-cyan transition-colors"
+                      >
+                        Forgot Password?
+                      </button>
+                    )}
+                    <button 
+                      type="button"
+                      onClick={() => setLoginMode('options')}
+                      className="text-[10px] text-sepm-cyan font-black uppercase tracking-widest hover:underline mx-auto"
+                    >
+                      Back to Options
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
           </div>
         )}
-        <p className="text-sepm-cyan text-[9px] font-mono font-bold tracking-widest">
-          STATION INSPECTION PROTOCOL v1.0.44
-        </p>
+
+        <div className="space-y-4 pt-4 opacity-40">
+          <p className="text-slate-900 text-[10px] font-bold tracking-[0.4em] uppercase">
+            SEPM Construction & Maintenance
+          </p>
+          {!user && (
+            <div className="pt-2">
+              <a 
+                href="mailto:Ruth.Haas@sepmfix.com?subject=Access%20Request%20-%20SEPM%20Lyft%20Portal&body=Hello,%20I%20would%20like%20to%20request%20access%20to%20the%20SEPM%20Lyft%20Operational%20Portal.%0A%0AEmail:%20"
+                className="text-[10px] text-sepm-cyan font-black uppercase tracking-widest hover:underline"
+              >
+                Request Authorization
+              </a>
+            </div>
+          )}
+          <p className="text-sepm-cyan text-[9px] font-mono font-bold tracking-widest">
+            STATION INSPECTION PROTOCOL v1.0.44
+          </p>
+        </div>
       </div>
     </motion.div>
   );

@@ -19,7 +19,13 @@ service cloud.firestore {
       return isEmailVerified() && (
         request.auth.token.email.endsWith('@sepmfix.com') ||
         exists(/databases/$(database)/documents/authorized_users/$(request.auth.token.email)) ||
-        request.auth.token.email == 'crcjehaas@gmail.com' // Bootstrap Admin
+        request.auth.token.email in [
+          'crcjehaas@gmail.com', 
+          'charles_haas@outlook.com', 
+          'ruth_haas@outlook.com', 
+          'ruth.haas@sepmfix.com', 
+          'andy.phipps@sepmfix.com'
+        ]
       );
     }
 
