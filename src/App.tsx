@@ -1224,34 +1224,34 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
             <form onSubmit={handlePasswordChange} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-6">Current Password</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-6">Current Password</label>
                   <input 
                     type="password"
                     required
                     placeholder="••••••••"
-                    className="w-full bg-white/5 border border-white/10 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all"
+                    className="w-full bg-slate-50 border border-slate-200 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-6">New Password</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-6">New Password</label>
                   <input 
                     type="password"
                     required
                     placeholder="••••••••"
-                    className="w-full bg-white/5 border border-white/10 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all"
+                    className="w-full bg-slate-50 border border-slate-200 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-6">Confirm New</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-6">Confirm New</label>
                   <input 
                     type="password"
                     required
                     placeholder="••••••••"
-                    className="w-full bg-white/5 border border-white/10 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all"
+                    className="w-full bg-slate-50 border border-slate-200 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                   />

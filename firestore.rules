@@ -8,24 +8,20 @@ service cloud.firestore {
 
     // Global helpers
     function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isEmailVerified() {
-      return isSignedIn() && request.auth.token.email_verified == true;
+      return request.auth != null && request.auth.token != null;
     }
 
     function isAuthorized() {
-      return isEmailVerified() && (
-        request.auth.token.email.endsWith('@sepmfix.com') ||
-        exists(/databases/$(database)/documents/authorized_users/$(request.auth.token.email)) ||
-        request.auth.token.email in [
+      return isSignedIn() && (
+        request.auth.token.email.lower() in [
           'crcjehaas@gmail.com', 
           'charles_haas@outlook.com', 
           'ruth_haas@outlook.com', 
           'ruth.haas@sepmfix.com', 
           'andy.phipps@sepmfix.com'
-        ]
+        ] ||
+        request.auth.token.email.lower().endsWith('@sepmfix.com') ||
+        exists(/databases/$(database)/documents/authorized_users/$(request.auth.token.email.lower()))
       );
     }
 
@@ -81,8 +77,8 @@ service cloud.firestore {
 
     // User Management Rules
     match /authorized_users/{email} {
-      allow read: if isAuthorized();
-      allow write: if isAuthorized() && request.auth.token.email == 'crcjehaas@gmail.com';
+      allow read: if isSignedIn();
+      allow write: if isAuthorized() && request.auth.token.email.lower() == 'crcjehaas@gmail.com';
     }
   }
 }
