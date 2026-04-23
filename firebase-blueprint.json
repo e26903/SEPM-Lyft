@@ -1,0 +1,41 @@
+{
+  "entities": {
+    "Inspection": {
+      "title": "Inspection Report",
+      "description": "Comprehensive lift station inspection report including electrical data, pump evaluations, and site media.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "submitted"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "submittedAt": { "type": "string", "format": "date-time" },
+        "workOrderNo": { "type": "string" },
+        "storeNo": { "type": "string" },
+        "technicianName": { "type": "string" },
+        "userId": { "type": "string" },
+        "data": { "type": "object", "description": "The full inspection manifest payload" }
+      },
+      "required": ["id", "status", "createdAt", "workOrderNo", "storeNo", "technicianName", "userId"]
+    },
+    "AppSetting": {
+      "title": "Application Setting",
+      "description": "Global or user-specific configuration",
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "value": { "type": "string" }
+      },
+      "required": ["key", "value"]
+    }
+  },
+  "firestore": {
+    "/inspections/{inspectionId}": {
+      "schema": "Inspection",
+      "description": "Collection of all inspection reports across all users."
+    },
+    "/settings/{settingId}": {
+      "schema": "AppSetting",
+      "description": "Global settings for the application."
+    }
+  }
+}

@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incomingData() {
+      return request.resource.data;
+    }
+
+    function existingData() {
+      return resource.data;
+    }
+
+    // Inspection Rules
+    match /inspections/{inspectionId} {
+      function isValidInspection(data) {
+        return data.keys().hasAll(['id', 'status', 'createdAt', 'workOrderNo', 'storeNo', 'technicianName', 'userId'])
+          && data.id is string && data.id.size() <= 128
+          && data.status in ['draft', 'submitted']
+          && data.workOrderNo is string && data.workOrderNo.size() <= 100
+          && data.storeNo is string && data.storeNo.size() <= 50
+          && data.technicianName is string && data.technicianName.size() <= 200
+          && data.userId == request.auth.uid;
+      }
+
+      // Allow all verified team members to list and get reports
+      allow list: if isEmailVerified();
+      allow get: if isEmailVerified();
+
+      allow create: if isEmailVerified() 
+        && isValidId(inspectionId) 
+        && isValidInspection(incomingData())
+        && incomingData().id == inspectionId;
+
+      allow update: if isEmailVerified()
+        && existingData().userId == request.auth.uid
+        && isValidInspection(incomingData())
+        // Prevent editing submitted reports (terminal state)
+        && (existingData().status != 'submitted' || incomingData().status == 'submitted')
+        && incomingData().userId == existingData().userId
+        && incomingData().id == existingData().id;
+
+      allow delete: if isEmailVerified() && existingData().userId == request.auth.uid;
+    }
+
+    // Settings Rules
+    match /settings/{settingId} {
+      allow read: if isEmailVerified();
+      allow write: if isEmailVerified(); // For now, allow technicians to update settings (like Dropbox token)
+    }
+  }
+}

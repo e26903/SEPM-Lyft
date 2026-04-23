@@ -45,6 +45,7 @@ import {
   getEmailRecipients,
   saveEmailRecipients
 } from './lib/storage';
+import { auth, googleProvider, signInWithPopup, onAuthStateChanged, User } from './lib/firebase';
 import { InspectionForm } from './components/InspectionForm';
 import { generateInspectionPDF } from './lib/pdf';
 import { exportToCSV } from './lib/csv';
@@ -59,12 +60,19 @@ export default function App() {
   const [inspections, setInspections] = useState<InspectionData[]>([]);
   const [currentInspection, setCurrentInspection] = useState<InspectionData | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const mainStageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    loadInspections();
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setLoading(false);
+      loadInspections();
+    });
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -322,6 +330,17 @@ export default function App() {
 // --- Screens ---
 
 function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
+  const handleLogin = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      console.error("Login failed:", error);
+      alert("Authentication failed. Please try again.");
+    }
+  };
+
+  const user = auth.currentUser;
+
   return (
     <motion.div 
       initial={{ opacity: 0 }} 
@@ -335,14 +354,25 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
         </div>
       </div>
       
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={onStart}
-        className="px-16 py-5 bg-sepm-cyan hover:bg-sepm-cyan/90 text-white font-black rounded-full text-xl shadow-2xl shadow-sepm-cyan/30 transition-all uppercase tracking-[0.2em] mb-12"
-      >
-        Enter
-      </motion.button>
+      {user ? (
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={onStart}
+          className="px-16 py-5 bg-sepm-cyan hover:bg-sepm-cyan/90 text-white font-black rounded-full text-xl shadow-2xl shadow-sepm-cyan/30 transition-all uppercase tracking-[0.2em] mb-12"
+        >
+          Enter Portal
+        </motion.button>
+      ) : (
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={handleLogin}
+          className="px-16 py-5 bg-slate-900 hover:bg-slate-800 text-white font-black rounded-full text-xl shadow-2xl shadow-slate-900/30 transition-all uppercase tracking-[0.2em] mb-12 flex items-center justify-center gap-4"
+        >
+          <Mail size={24} /> Stakeholder Login
+        </motion.button>
+      )}
 
       <div className="space-y-2 opacity-40">
         <p className="text-slate-900 text-[10px] font-bold tracking-[0.4em] uppercase">
@@ -1011,6 +1041,27 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
                 </button>
               </div>
             </div>
+          </div>
+        </section>
+
+        <section className="space-y-6 opacity-80">
+          <div className="flex items-center gap-3 text-red-500">
+            <Trash2 size={20} />
+            <h3 className="font-black uppercase tracking-widest text-sm">Session Control</h3>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-[32px] p-8 space-y-6">
+            <p className="text-sm text-white/60 leading-relaxed">
+              Log out to switch stakeholders or clear your session from this device.
+            </p>
+            <button 
+              onClick={async () => {
+                await auth.signOut();
+                onBack(); // Go to welcome
+              }}
+              className="w-full py-5 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-red-500 hover:text-white transition-all"
+            >
+              Terminate Session
+            </button>
           </div>
         </section>
 
