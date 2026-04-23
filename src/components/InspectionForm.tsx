@@ -42,6 +42,141 @@ const STEPS = [
   { id: 'review', title: 'Review', icon: ShieldCheck }
 ];
 
+const conditionSchema = z.enum(['Good', 'Fair', 'Poor', 'N/A', ' - - - - - ']).refine(val => val !== ' - - - - - ', {
+  message: "Selection required"
+});
+
+const pumpElectricalSchema = z.object({
+  volts_off: z.object({ l1: z.string().min(1), l2: z.string().min(1), l3: z.string().min(1) }),
+  volts_on: z.object({ l1: z.string().min(1), l2: z.string().min(1), l3: z.string().min(1) }),
+  amps: z.object({ l1: z.string().min(1), l2: z.string(), l3: z.string() }),
+  meg: z.object({ l1: z.string().min(1), l2: z.string(), l3: z.string() }),
+  ohms: z.object({ l1: z.string().min(1), l2: z.string(), l3: z.string() }),
+});
+
+const pumpEvaluationSchema = z.object({
+  meterReading: z.string().min(1),
+  runtime: z.string().min(1),
+  condition: conditionSchema,
+  images: z.array(z.string())
+});
+
+const validationSchema = z.object({
+  id: z.string(),
+  status: z.enum(['draft', 'submitted']),
+  createdAt: z.string(),
+  submittedAt: z.string().optional(),
+  
+  workOrderNo: z.string().min(1, "Work Order required"),
+  arrivalDateTime: z.string().min(1, "Arrival time required"),
+  technicianName: z.string().min(1, "Name required"),
+  contractorCompany: z.string(),
+  storeNo: z.string().min(1, "Store required"),
+  streetAddress1: z.string(),
+  streetAddress2: z.string(),
+  city: z.string(),
+  state: z.string(),
+  zipcode: z.string(),
+
+  propertyClassification: z.string().refine(val => val !== ' - - - - - ', "Required"),
+  propertyClassificationOtherDetails: z.string().optional(),
+  inspectionType: z.string().refine(val => val !== ' - - - - - ', "Required"),
+  liftStationType: z.string().refine(val => val !== ' - - - - - ', "Required"),
+  alarmStatus: z.string().refine(val => val !== ' - - - - - ', "Required"),
+  ratingScore: z.number(),
+  inspectionDetailsNotes: z.string(),
+
+  pump1Electrical: pumpElectricalSchema,
+  pump2Electrical: pumpElectricalSchema,
+
+  pump1Evaluation: pumpEvaluationSchema,
+  pump2Evaluation: pumpEvaluationSchema,
+
+  visualAlarmTest: z.object({ condition: conditionSchema, notes: z.string(), images: z.array(z.string()) }),
+  audibleAlarmTest: z.object({ condition: conditionSchema, notes: z.string(), images: z.array(z.string()) }),
+  overallSiteCondition: z.object({ condition: conditionSchema, notes: z.string(), images: z.array(z.string()) }),
+
+  wetWell: z.object({
+    sideRails: conditionSchema,
+    brackets: conditionSchema,
+    piping: conditionSchema,
+    flanges: conditionSchema,
+    plugValves: conditionSchema,
+    checkValves: conditionSchema,
+    floats: conditionSchema,
+    overallWell: conditionSchema,
+    notes: z.string(),
+    images: z.array(z.string())
+  }),
+
+  controlBox: z.object({
+    boxCondition: conditionSchema,
+    breakers: conditionSchema,
+    starters: conditionSchema,
+    relays: conditionSchema,
+    contactors: conditionSchema,
+    alternators: conditionSchema,
+    controlConnections: conditionSchema,
+    hoaSwitches: conditionSchema,
+    levelControl: conditionSchema,
+    notes: z.string(),
+    images: z.array(z.string())
+  }),
+
+  manifest: z.object({
+    number: z.string().min(1, "Required"),
+    disposalSite: z.string().min(1, "Required"),
+    disposalMethod: z.string().min(1, "Required"),
+    volumeGals: z.string().min(1, "Required"),
+    pumpingContractor: z.string(),
+  }),
+
+  generator: z.object({
+    lastServiceDate: z.string(),
+    nextServiceDate: z.string(),
+    nextInspectionDate: z.string(),
+    notes: z.string(),
+  }),
+
+  remoteAlarm: z.object({
+    brand: z.string(),
+    condition: conditionSchema,
+    notes: z.string(),
+    images: z.array(z.string())
+  }),
+
+  departureDateTime: z.string().min(1, "Departure time required"),
+});
+
+const STEP_FIELDS: Record<string, string[]> = {
+  general: ['workOrderNo', 'arrivalDateTime', 'technicianName', 'storeNo', 'propertyClassification', 'inspectionType', 'liftStationType', 'alarmStatus'],
+  electrical: [
+    'pump1Electrical.volts_off.l1', 'pump1Electrical.volts_off.l2', 'pump1Electrical.volts_off.l3',
+    'pump1Electrical.volts_on.l1', 'pump1Electrical.volts_on.l2', 'pump1Electrical.volts_on.l3',
+    'pump1Electrical.amps.l1', 'pump1Electrical.meg.l1', 'pump1Electrical.ohms.l1',
+    'pump2Electrical.volts_off.l1', 'pump2Electrical.volts_off.l2', 'pump2Electrical.volts_off.l3',
+    'pump2Electrical.volts_on.l1', 'pump2Electrical.volts_on.l2', 'pump2Electrical.volts_on.l3',
+    'pump2Electrical.amps.l1', 'pump2Electrical.meg.l1', 'pump2Electrical.ohms.l1'
+  ],
+  pumps: [
+    'pump1Evaluation.meterReading', 'pump1Evaluation.runtime', 'pump1Evaluation.condition',
+    'pump2Evaluation.meterReading', 'pump2Evaluation.runtime', 'pump2Evaluation.condition',
+    'visualAlarmTest.condition', 'audibleAlarmTest.condition'
+  ],
+  wetwell: [
+    'wetWell.sideRails', 'wetWell.brackets', 'wetWell.piping', 'wetWell.flanges', 'wetWell.plugValves', 'wetWell.checkValves', 'wetWell.floats', 'wetWell.overallWell'
+  ],
+  controls: [
+    'controlBox.boxCondition', 'controlBox.breakers', 'controlBox.starters', 'controlBox.relays', 'controlBox.contactors', 'controlBox.alternators', 'controlBox.controlConnections', 'controlBox.hoaSwitches', 'controlBox.levelControl'
+  ],
+  service: [
+    'manifest.number', 'manifest.disposalSite', 'manifest.disposalMethod', 'manifest.volumeGals'
+  ],
+  review: [
+    'departureDateTime'
+  ]
+};
+
 interface FormProps {
   inspection: InspectionData;
   setInspection: (data: InspectionData) => void;
@@ -65,13 +200,22 @@ export function InspectionForm({ inspection, setInspection, onBack, onComplete }
     }
   }, [stepIndex]);
 
-  const { register, handleSubmit, watch, setValue, getValues, formState: { errors } } = useForm<InspectionData>({
-    defaultValues: inspection
+  const { register, handleSubmit, watch, setValue, getValues, trigger, formState: { errors } } = useForm<InspectionData>({
+    defaultValues: inspection,
+    resolver: zodResolver(validationSchema)
   });
 
   const formValues = watch();
 
   const handleNext = async () => {
+    const currentStepFields = STEP_FIELDS[currentStepId] || [];
+    const isValid = await trigger(currentStepFields as any);
+
+    if (!isValid) {
+      alert("Validation Error: Please complete all required fields highlighted in this section.");
+      return;
+    }
+
     if (stepIndex < STEPS.length - 1) {
       setStepIndex(stepIndex + 1);
       saveInspection(formValues);
@@ -155,13 +299,13 @@ export function InspectionForm({ inspection, setInspection, onBack, onComplete }
 
   const renderCurrentStep = () => {
     switch (currentStepId) {
-      case 'general': return <GeneralInfoStep register={register} setValue={setValue} watch={watch} disabled={isReadOnly} />;
-      case 'electrical': return <ElectricalStep register={register} disabled={isReadOnly} />;
-      case 'pumps': return <PumpsStep register={register} setValue={setValue} getValues={getValues} values={formValues} disabled={isReadOnly} />;
-      case 'wetwell': return <WetWellStep register={register} setValue={setValue} getValues={getValues} values={formValues} disabled={isReadOnly} />;
-      case 'controls': return <ControlsStep register={register} setValue={setValue} getValues={getValues} values={formValues} disabled={isReadOnly} />;
-      case 'service': return <ServiceStep register={register} setValue={setValue} getValues={getValues} values={formValues} disabled={isReadOnly} />;
-      case 'review': return <ReviewStep values={formValues} register={register} disabled={isReadOnly} />;
+      case 'general': return <GeneralInfoStep register={register} setValue={setValue} watch={watch} disabled={isReadOnly} errors={errors} />;
+      case 'electrical': return <ElectricalStep register={register} disabled={isReadOnly} errors={errors} />;
+      case 'pumps': return <PumpsStep register={register} setValue={setValue} getValues={getValues} values={formValues} disabled={isReadOnly} errors={errors} />;
+      case 'wetwell': return <WetWellStep register={register} setValue={setValue} getValues={getValues} values={formValues} disabled={isReadOnly} errors={errors} />;
+      case 'controls': return <ControlsStep register={register} setValue={setValue} getValues={getValues} values={formValues} disabled={isReadOnly} errors={errors} />;
+      case 'service': return <ServiceStep register={register} setValue={setValue} getValues={getValues} values={formValues} disabled={isReadOnly} errors={errors} />;
+      case 'review': return <ReviewStep values={formValues} register={register} disabled={isReadOnly} errors={errors} />;
       default: return null;
     }
   };
@@ -266,27 +410,40 @@ function FieldGroup({ title, children }: { title: string; children: React.ReactN
   );
 }
 
-function Input({ label, disabled, ...props }: any) {
+function Input({ label, disabled, error, className, ...props }: any) {
   return (
     <div className={cn("space-y-2", disabled && "opacity-60 grayscale-[0.2]")}>
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">{label}</label>
+      <div className="flex justify-between items-center px-1">
+        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</label>
+        {error && <span className="text-[9px] font-bold text-red-500 uppercase italic">{error.message}</span>}
+      </div>
       <input 
         disabled={disabled}
-        className="white-input w-full rounded-xl md:rounded-2xl px-5 py-4 text-sm font-bold placeholder:text-slate-300 disabled:cursor-not-allowed"
+        className={cn(
+          "white-input w-full rounded-xl md:rounded-2xl px-5 py-4 text-sm font-bold placeholder:text-slate-300 disabled:cursor-not-allowed transition-all",
+          error && "border-red-500 bg-red-50/50",
+          className
+        )}
         {...props}
       />
     </div>
   );
 }
 
-function Select({ label, options, disabled, ...props }: any) {
+function Select({ label, options, disabled, error, ...props }: any) {
   return (
     <div className={cn("space-y-2", disabled && "opacity-60 grayscale-[0.2]")}>
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">{label}</label>
+      <div className="flex justify-between items-center px-1">
+        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</label>
+        {error && <span className="text-[9px] font-bold text-red-500 uppercase italic">{error.message}</span>}
+      </div>
       <div className="relative">
         <select 
           disabled={disabled}
-          className="white-input w-full rounded-xl md:rounded-2xl px-5 py-4 text-sm font-bold appearance-none disabled:cursor-not-allowed"
+          className={cn(
+            "white-input w-full rounded-xl md:rounded-2xl px-5 py-4 text-sm font-bold appearance-none disabled:cursor-not-allowed transition-all",
+            error && "border-red-500 bg-red-50/50"
+          )}
           {...props}
         >
           {options.map((o: string) => <option key={o} value={o}>{o}</option>)}
@@ -354,7 +511,7 @@ function MultiImageUpload({ label, images, onAdd, onRemove, disabled }: { label:
   );
 }
 
-function GeneralInfoStep({ register, setValue, watch, disabled }: any) {
+function GeneralInfoStep({ register, setValue, watch, disabled, errors }: any) {
   const [storeSearch, setStoreSearch] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [allSites, setAllSites] = useState<Site[]>(SITES);
@@ -391,7 +548,7 @@ function GeneralInfoStep({ register, setValue, watch, disabled }: any) {
 
   const handleSelectSite = (site: Site) => {
     if (disabled) return;
-    setValue('storeNo', site.storeNo);
+    setValue('storeNo', site.storeNo, { shouldValidate: true });
     setValue('streetAddress1', site.streetAddress1);
     setValue('city', site.city);
     setValue('state', site.state);
@@ -404,11 +561,17 @@ function GeneralInfoStep({ register, setValue, watch, disabled }: any) {
     <>
       <FieldGroup title="Search & Station Selection">
         <div className="relative space-y-2">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Station Search</label>
+          <div className="flex justify-between items-center px-1">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Station Search</label>
+            {errors?.storeNo && <span className="text-[9px] font-bold text-red-500 uppercase italic">{errors.storeNo.message}</span>}
+          </div>
           <div className="relative">
             <input 
               disabled={disabled}
-              className="white-input w-full rounded-2xl px-5 py-4 text-sm font-black pr-12 disabled:opacity-40 disabled:cursor-not-allowed"
+              className={cn(
+                "white-input w-full rounded-2xl px-5 py-4 text-sm font-black pr-12 disabled:opacity-40 disabled:cursor-not-allowed transition-all",
+                errors?.storeNo && "border-red-500 bg-red-50/50"
+              )}
               placeholder={disabled ? "Station Locked" : "Store ID / City / Street..."}
               value={storeSearch}
               onChange={(e) => {
@@ -450,9 +613,27 @@ function GeneralInfoStep({ register, setValue, watch, disabled }: any) {
       </FieldGroup>
 
       <FieldGroup title="Inspection Header">
-        <Input label="Work Order #" {...register('workOrderNo')} placeholder="WO-XXXX-XXXX" disabled={disabled} />
-        <Input label="Technician Name" {...register('technicianName')} placeholder="Enter full name..." disabled={disabled} />
-        <Input label="Arrival Date & Time" type="datetime-local" {...register('arrivalDateTime')} disabled={disabled} />
+        <Input 
+          label="Work Order #" 
+          {...register('workOrderNo')} 
+          placeholder="WO-XXXX-XXXX" 
+          disabled={disabled}
+          error={errors?.workOrderNo}
+        />
+        <Input 
+          label="Technician Name" 
+          {...register('technicianName')} 
+          placeholder="Enter full name..." 
+          disabled={disabled}
+          error={errors?.technicianName}
+        />
+        <Input 
+          label="Arrival Date & Time" 
+          type="datetime-local" 
+          {...register('arrivalDateTime')} 
+          disabled={disabled}
+          error={errors?.arrivalDateTime}
+        />
       </FieldGroup>
       
       <FieldGroup title="Verified Location">
@@ -476,6 +657,7 @@ function GeneralInfoStep({ register, setValue, watch, disabled }: any) {
           label="Property Classification" 
           options={[' - - - - - ', 'Walmart Div 1', "Sam's Club", 'Supercenter', 'Neighborhood Mkt', 'Dark Store', 'Supply Chain', 'Other']} 
           {...register('propertyClassification')} 
+          error={errors?.propertyClassification}
         />
         {watch('propertyClassification') === 'Other' && (
           <motion.div
@@ -487,16 +669,18 @@ function GeneralInfoStep({ register, setValue, watch, disabled }: any) {
           </motion.div>
         )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Select label="Inspection Type" options={[' - - - - - ', 'PREVENTATIVE', 'EMERGENCY']} {...register('inspectionType')} disabled={disabled} />
-          <Select label="Lift Station Type" options={[' - - - - - ', 'Primary', 'Secondary']} {...register('liftStationType')} disabled={disabled} />
+          <Select label="Inspection Type" options={[' - - - - - ', 'PREVENTATIVE', 'EMERGENCY']} {...register('inspectionType')} disabled={disabled} error={errors?.inspectionType} />
+          <Select label="Lift Station Type" options={[' - - - - - ', 'Primary', 'Secondary']} {...register('liftStationType')} disabled={disabled} error={errors?.liftStationType} />
         </div>
-        <Select label="Station Status" options={[' - - - - - ', 'NORMAL', 'ALARM']} {...register('alarmStatus')} disabled={disabled} />
+        <Select label="Station Status" options={[' - - - - - ', 'NORMAL', 'ALARM']} {...register('alarmStatus')} disabled={disabled} error={errors?.alarmStatus} />
       </FieldGroup>
     </>
   );
 }
 
-function PumpSection({ id, title, register, disabled }: { id: string; title: string; register: any; disabled?: boolean }) {
+function PumpSection({ id, title, register, disabled, errors }: { id: string; title: string; register: any; disabled?: boolean; errors?: any }) {
+  const sectionErrors = errors?.[id];
+
   return (
     <FieldGroup title={title}>
       <div className="space-y-4">
@@ -504,50 +688,51 @@ function PumpSection({ id, title, register, disabled }: { id: string; title: str
           <div className="w-1.5 h-1.5 rounded-full bg-sepm-cyan" /> Line Voltage (OFF)
         </div>
         <div className="grid grid-cols-3 gap-3">
-          <Input label="L1" {...register(`${id}.volts_off.l1`)} placeholder="V" disabled={disabled} />
-          <Input label="L2" {...register(`${id}.volts_off.l2`)} placeholder="V" disabled={disabled} />
-          <Input label="L3" {...register(`${id}.volts_off.l3`)} placeholder="V" disabled={disabled} />
+          <Input label="L1" {...register(`${id}.volts_off.l1`)} placeholder="V" disabled={disabled} error={sectionErrors?.volts_off?.l1} />
+          <Input label="L2" {...register(`${id}.volts_off.l2`)} placeholder="V" disabled={disabled} error={sectionErrors?.volts_off?.l2} />
+          <Input label="L3" {...register(`${id}.volts_off.l3`)} placeholder="V" disabled={disabled} error={sectionErrors?.volts_off?.l3} />
         </div>
         <div className="text-[10px] font-black text-sepm-cyan border-b border-sepm-cyan/10 pb-2 uppercase tracking-widest italic mt-8 flex items-center gap-2">
           <div className="w-1.5 h-1.5 rounded-full bg-sepm-cyan" /> Line Voltage (ON)
         </div>
         <div className="grid grid-cols-3 gap-3">
-          <Input label="L1" {...register(`${id}.volts_on.l1`)} placeholder="V" disabled={disabled} />
-          <Input label="L2" {...register(`${id}.volts_on.l2`)} placeholder="V" disabled={disabled} />
-          <Input label="L3" {...register(`${id}.volts_on.l3`)} placeholder="V" disabled={disabled} />
+          <Input label="L1" {...register(`${id}.volts_on.l1`)} placeholder="V" disabled={disabled} error={sectionErrors?.volts_on?.l1} />
+          <Input label="L2" {...register(`${id}.volts_on.l2`)} placeholder="V" disabled={disabled} error={sectionErrors?.volts_on?.l2} />
+          <Input label="L3" {...register(`${id}.volts_on.l3`)} placeholder="V" disabled={disabled} error={sectionErrors?.volts_on?.l3} />
         </div>
         <div className="text-[10px] font-black text-lyft-lime border-b border-lyft-lime/10 pb-2 uppercase tracking-widest italic mt-8 flex items-center gap-2">
           <div className="w-1.5 h-1.5 rounded-full bg-lyft-lime" /> Performance Metrics
         </div>
         <div className="grid grid-cols-3 gap-3">
-          <Input label="Amps" {...register(`${id}.amps.l1`)} placeholder="A" disabled={disabled} />
-          <Input label="Megs" {...register(`${id}.meg.l1`)} placeholder="M" disabled={disabled} />
-          <Input label="Ohms" {...register(`${id}.ohms.l1`)} placeholder="Ω" disabled={disabled} />
+          <Input label="Amps" {...register(`${id}.amps.l1`)} placeholder="A" disabled={disabled} error={sectionErrors?.amps?.l1} />
+          <Input label="Megs" {...register(`${id}.meg.l1`)} placeholder="M" disabled={disabled} error={sectionErrors?.meg?.l1} />
+          <Input label="Ohms" {...register(`${id}.ohms.l1`)} placeholder="Ω" disabled={disabled} error={sectionErrors?.ohms?.l1} />
         </div>
       </div>
     </FieldGroup>
   );
 }
 
-function ElectricalStep({ register, disabled }: any) {
+function ElectricalStep({ register, disabled, errors }: any) {
   return (
     <div className="space-y-6">
-      <PumpSection id="pump1Electrical" title="Pump No. 1 - Electrical" register={register} disabled={disabled} />
-      <PumpSection id="pump2Electrical" title="Pump No. 2 - Electrical" register={register} disabled={disabled} />
+      <PumpSection id="pump1Electrical" title="Pump No. 1 - Electrical" register={register} disabled={disabled} errors={errors} />
+      <PumpSection id="pump2Electrical" title="Pump No. 2 - Electrical" register={register} disabled={disabled} errors={errors} />
     </div>
   );
 }
 
-function PumpEval({ id, index, register, condOptions, values, setValue, getValues, disabled }: any) {
+function PumpEval({ id, index, register, condOptions, values, setValue, getValues, disabled, errors }: any) {
   const images = values?.[id]?.images || [];
+  const evalErrors = errors?.[id];
 
   return (
     <FieldGroup title={`Pump No. ${index} Evaluation`}>
       <div className="grid grid-cols-2 gap-4">
-        <Input label="Meter Reading" {...register(`${id}.meterReading`)} disabled={disabled} />
-        <Input label="Runtime (hrs)" {...register(`${id}.runtime`)} disabled={disabled} />
+        <Input label="Meter Reading" {...register(`${id}.meterReading`)} disabled={disabled} error={evalErrors?.meterReading} />
+        <Input label="Runtime (hrs)" {...register(`${id}.runtime`)} disabled={disabled} error={evalErrors?.runtime} />
       </div>
-      <Select label="Condition" options={condOptions} {...register(`${id}.condition`)} disabled={disabled} />
+      <Select label="Condition" options={condOptions} {...register(`${id}.condition`)} disabled={disabled} error={evalErrors?.condition} />
       
       <div className="pt-4 mt-4 border-t border-slate-100">
         <MultiImageUpload 
@@ -568,17 +753,17 @@ function PumpEval({ id, index, register, condOptions, values, setValue, getValue
   );
 }
 
-function PumpsStep({ register, setValue, getValues, values, disabled }: any) {
+function PumpsStep({ register, setValue, getValues, values, disabled, errors }: any) {
   const condOptions = [' - - - - - ', 'Good', 'Fair', 'Poor', 'N/A'];
   
   return (
     <div className="space-y-10">
-      <PumpEval id="pump1Evaluation" index={1} register={register} condOptions={condOptions} values={values} setValue={setValue} getValues={getValues} disabled={disabled} />
-      <PumpEval id="pump2Evaluation" index={2} register={register} condOptions={condOptions} values={values} setValue={setValue} getValues={getValues} disabled={disabled} />
+      <PumpEval id="pump1Evaluation" index={1} register={register} condOptions={condOptions} values={values} setValue={setValue} getValues={getValues} disabled={disabled} errors={errors} />
+      <PumpEval id="pump2Evaluation" index={2} register={register} condOptions={condOptions} values={values} setValue={setValue} getValues={getValues} disabled={disabled} errors={errors} />
       <FieldGroup title="Station Security Test">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-4">
-            <Select label="Visual Alarm" options={condOptions} {...register('visualAlarmTest.condition')} disabled={disabled} />
+            <Select label="Visual Alarm" options={condOptions} {...register('visualAlarmTest.condition')} disabled={disabled} error={errors?.visualAlarmTest?.condition} />
             <Input label="Visual Test Notes" {...register('visualAlarmTest.notes')} disabled={disabled} />
             <MultiImageUpload 
               label="Visual Test Media" 
@@ -595,7 +780,7 @@ function PumpsStep({ register, setValue, getValues, values, disabled }: any) {
             />
           </div>
           <div className="space-y-4">
-            <Select label="Audible Alarm" options={condOptions} {...register('audibleAlarmTest.condition')} disabled={disabled} />
+            <Select label="Audible Alarm" options={condOptions} {...register('audibleAlarmTest.condition')} disabled={disabled} error={errors?.audibleAlarmTest?.condition} />
             <Input label="Audible Test Notes" {...register('audibleAlarmTest.notes')} disabled={disabled} />
             <MultiImageUpload 
               label="Audible Test Media" 
@@ -617,7 +802,7 @@ function PumpsStep({ register, setValue, getValues, values, disabled }: any) {
   );
 }
 
-function WetWellStep({ register, setValue, getValues, values, disabled }: any) {
+function WetWellStep({ register, setValue, getValues, values, disabled, errors }: any) {
   const condOptions = [' - - - - - ', 'Good', 'Fair', 'Poor', 'N/A'];
   const fields = [
     { id: 'sideRails', label: 'Side Rails' },
@@ -635,7 +820,7 @@ function WetWellStep({ register, setValue, getValues, values, disabled }: any) {
       <FieldGroup title="Structural Integrity Check">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-x-8 md:gap-y-6">
           {fields.map(f => (
-            <Select key={f.id} label={f.label} options={condOptions} {...register(`wetWell.${f.id}`)} disabled={disabled} />
+            <Select key={f.id} label={f.label} options={condOptions} {...register(`wetWell.${f.id}`)} disabled={disabled} error={errors?.wetWell?.[f.id]} />
           ))}
         </div>
         <Input label="Structural Notes" {...register('wetWell.notes')} disabled={disabled} />
@@ -660,7 +845,7 @@ function WetWellStep({ register, setValue, getValues, values, disabled }: any) {
   );
 }
 
-function ControlsStep({ register, setValue, getValues, values, disabled }: any) {
+function ControlsStep({ register, setValue, getValues, values, disabled, errors }: any) {
   const condOptions = [' - - - - - ', 'Good', 'Fair', 'Poor', 'N/A'];
   const fields = [
     { id: 'boxCondition', label: 'Box Condition' },
@@ -678,7 +863,7 @@ function ControlsStep({ register, setValue, getValues, values, disabled }: any) 
     <FieldGroup title="Control Box Connections">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {fields.map(f => (
-            <Select key={f.id} label={f.label} options={condOptions} {...register(`controlBox.${f.id}`)} disabled={disabled} />
+            <Select key={f.id} label={f.label} options={condOptions} {...register(`controlBox.${f.id}`)} disabled={disabled} error={errors?.controlBox?.[f.id]} />
         ))}
       </div>
       <Input label="Notes" {...register('controlBox.notes')} disabled={disabled} />
@@ -702,14 +887,14 @@ function ControlsStep({ register, setValue, getValues, values, disabled }: any) 
   );
 }
 
-function ServiceStep({ register, setValue, getValues, values, disabled }: any) {
+function ServiceStep({ register, setValue, getValues, values, disabled, errors }: any) {
   return (
     <>
       <FieldGroup title="Manifest Info">
-        <Input label="Manifest #" {...register('manifest.number')} disabled={disabled} />
-        <Input label="Disposal Site" {...register('manifest.disposalSite')} disabled={disabled} />
-        <Input label="Disposal Method" {...register('manifest.disposalMethod')} disabled={disabled} />
-        <Input label="Volume Pumped (gals)" {...register('manifest.volumeGals')} disabled={disabled} />
+        <Input label="Manifest #" {...register('manifest.number')} disabled={disabled} error={errors?.manifest?.number} />
+        <Input label="Disposal Site" {...register('manifest.disposalSite')} disabled={disabled} error={errors?.manifest?.disposalSite} />
+        <Input label="Disposal Method" {...register('manifest.disposalMethod')} disabled={disabled} error={errors?.manifest?.disposalMethod} />
+        <Input label="Volume Pumped (gals)" {...register('manifest.volumeGals')} disabled={disabled} error={errors?.manifest?.volumeGals} />
         <Input label="Pumping Contractor" {...register('manifest.pumpingContractor')} disabled={disabled} />
       </FieldGroup>
       <FieldGroup title="Generator Service">
@@ -720,7 +905,7 @@ function ServiceStep({ register, setValue, getValues, values, disabled }: any) {
       </FieldGroup>
       <FieldGroup title="Remote Alarm System">
         <Input label="System Brand" {...register('remoteAlarm.brand')} disabled={disabled} />
-        <Select label="Condition" options={[' - - - - - ', 'Good', 'Fair', 'Poor', 'N/A']} {...register('remoteAlarm.condition')} disabled={disabled} />
+        <Select label="Condition" options={[' - - - - - ', 'Good', 'Fair', 'Poor', 'N/A']} {...register('remoteAlarm.condition')} disabled={disabled} error={errors?.remoteAlarm?.condition} />
         <Input label="Notes" {...register('remoteAlarm.notes')} disabled={disabled} />
         
         <div className="pt-4 mt-4 border-t border-slate-100">
@@ -743,7 +928,7 @@ function ServiceStep({ register, setValue, getValues, values, disabled }: any) {
   );
 }
 
-function ReviewStep({ values, register, disabled }: any) {
+function ReviewStep({ values, register, disabled, errors }: any) {
   return (
     <div className="space-y-8 pb-32">
       <div className="text-center py-10">
@@ -797,6 +982,7 @@ function ReviewStep({ values, register, disabled }: any) {
             type="datetime-local" 
             {...register('departureDateTime')}
             disabled={disabled}
+            error={errors?.departureDateTime}
             className="white-input w-full rounded-xl md:rounded-2xl px-5 py-4 text-sm font-bold bg-white/5 border-white/10 text-white placeholder:text-white/20"
           />
         </div>
