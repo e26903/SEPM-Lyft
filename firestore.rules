@@ -17,6 +17,7 @@ service cloud.firestore {
 
     function isAuthorized() {
       return isEmailVerified() && (
+        request.auth.token.email.endsWith('@sepmfix.com') ||
         exists(/databases/$(database)/documents/authorized_users/$(request.auth.token.email)) ||
         request.auth.token.email == 'crcjehaas@gmail.com' // Bootstrap Admin
       );

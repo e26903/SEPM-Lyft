@@ -364,7 +364,7 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={onStart}
-          className="px-16 py-5 bg-sepm-cyan hover:bg-sepm-cyan/90 text-white font-black rounded-full text-xl shadow-2xl shadow-sepm-cyan/30 transition-all uppercase tracking-[0.2em] mb-12"
+          className="px-12 py-4 bg-sepm-cyan hover:bg-sepm-cyan/90 text-white font-black rounded-full text-lg shadow-2xl shadow-sepm-cyan/30 transition-all uppercase tracking-[0.2em] mb-12"
         >
           Enter Portal
         </motion.button>
@@ -373,9 +373,9 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={handleLogin}
-          className="px-16 py-5 bg-slate-900 hover:bg-slate-800 text-white font-black rounded-full text-xl shadow-2xl shadow-slate-900/30 transition-all uppercase tracking-[0.2em] mb-12 flex items-center justify-center gap-4"
+          className="px-12 py-4 bg-slate-900 hover:bg-slate-800 text-white font-black rounded-full text-lg shadow-2xl shadow-slate-900/30 transition-all uppercase tracking-[0.2em] mb-12 flex items-center justify-center gap-4"
         >
-          <Mail size={24} /> Stakeholder Login
+          <Mail size={22} /> Login
         </motion.button>
       )}
 
