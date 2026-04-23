@@ -82,3 +82,11 @@ export async function getDropboxToken(): Promise<string> {
   // Fallback to environment variable if set
   return (import.meta.env.VITE_DROPBOX_ACCESS_TOKEN as string) || '';
 }
+
+export async function saveEmailRecipients(recipients: string) {
+  await settingsStore.setItem('email_recipients', recipients);
+}
+
+export async function getEmailRecipients(): Promise<string> {
+  return await settingsStore.getItem('email_recipients') || 'Ruth.Haas@sepmfix.com';
+}

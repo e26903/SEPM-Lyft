@@ -41,7 +41,9 @@ import {
   getDestinationUrl,
   saveDestinationUrl,
   getDropboxToken,
-  saveDropboxToken
+  saveDropboxToken,
+  getEmailRecipients,
+  saveEmailRecipients
 } from './lib/storage';
 import { InspectionForm } from './components/InspectionForm';
 import { generateInspectionPDF } from './lib/pdf';
@@ -652,6 +654,12 @@ function DashboardScreen({ inspections, searchQuery, setSearchQuery, onNew, onEd
 }
 
 function SuccessScreen({ inspection, onDashboard }: { inspection: InspectionData, onDashboard: () => void, key?: string }) {
+  const [recipients, setRecipients] = useState('Ruth.Haas@sepmfix.com');
+
+  useEffect(() => {
+    getEmailRecipients().then(setRecipients);
+  }, []);
+
   return (
     <motion.div 
       initial={{ opacity: 0, scale: 0.95 }} 
@@ -679,7 +687,7 @@ function SuccessScreen({ inspection, onDashboard }: { inspection: InspectionData
           onClick={() => {
             const subject = encodeURIComponent(`Inspection Report: WO #${inspection.workOrderNo} - Store #${inspection.storeNo}`);
             const body = encodeURIComponent(`Find the attached inspection report for Work Order #${inspection.workOrderNo} completed on ${format(new Date(), 'PPP')}.`);
-            window.location.href = `mailto:stakeholders@sepm.com?subject=${subject}&body=${body}`;
+            window.location.href = `mailto:${recipients}?subject=${subject}&body=${body}`;
           }}
           className="flex flex-col items-center gap-4 p-8 bg-slate-50 border border-slate-100 rounded-[2.5rem] hover:border-sepm-cyan transition-all group shadow-sm"
         >
@@ -717,6 +725,7 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
   const [url, setUrl] = useState('');
   const [destUrl, setDestUrl] = useState('');
   const [dbxToken, setDbxToken] = useState('');
+  const [recipients, setRecipients] = useState('');
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<{ fileName: string; count: number; date: string } | null>(null);
 
@@ -724,6 +733,7 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
     getSmartsheetUrl().then(setUrl);
     getDestinationUrl().then(setDestUrl);
     getDropboxToken().then(setDbxToken);
+    getEmailRecipients().then(setRecipients);
     getSiteMetadata().then(setMetadata);
   }, []);
 
@@ -771,6 +781,12 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
   const handleSaveDestUrl = async () => {
     await saveDestinationUrl(destUrl);
     setImportStatus('Destination URL updated.');
+    setTimeout(() => setImportStatus(null), 2000);
+  };
+
+  const handleSaveRecipients = async () => {
+    await saveEmailRecipients(recipients);
+    setImportStatus('Stakeholder recipients updated.');
     setTimeout(() => setImportStatus(null), 2000);
   };
 
@@ -933,6 +949,36 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
                   </button>
                 </div>
                 <p className="text-[9px] text-white/20 italic">If using an automated token, enter the folder path instead of a URL.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-6 opacity-80">
+          <div className="flex items-center gap-3 text-sepm-cyan">
+            <Mail size={20} />
+            <h3 className="font-black uppercase tracking-widest text-sm">Communication Protocol</h3>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-[32px] p-8 space-y-6">
+            <p className="text-sm text-white/60 leading-relaxed">
+              Define the default "Push Email" recipients. Use commas for multiple addresses.
+            </p>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Stakeholder Recipients</label>
+              <div className="flex gap-2">
+                <input 
+                  type="text"
+                  placeholder="Ruth.Haas@sepmfix.com, tech@sepm.com"
+                  className="flex-1 bg-white/5 border border-white/10 px-5 py-4 rounded-2xl text-sm outline-none focus:border-sepm-cyan transition-all font-mono"
+                  value={recipients}
+                  onChange={(e) => setRecipients(e.target.value)}
+                />
+                <button 
+                  onClick={handleSaveRecipients}
+                  className="px-6 bg-sepm-cyan text-slate-900 font-black uppercase text-xs rounded-2xl hover:bg-white transition-colors"
+                >
+                  Apply
+                </button>
               </div>
             </div>
           </div>
