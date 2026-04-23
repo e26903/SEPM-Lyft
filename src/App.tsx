@@ -889,6 +889,7 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
   const [authUsers, setAuthUsers] = useState<string[]>([]);
   const [newAuthEmail, setNewAuthEmail] = useState('');
   const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [health, setHealth] = useState<{ env: string; status: string } | null>(null);
   const [importError, setImportError] = useState<boolean>(false);
   const [metadata, setMetadata] = useState<{ fileName: string; count: number; date: string } | null>(null);
   
@@ -910,6 +911,12 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
     if (isAdmin) {
       getAuthorizedUsers().then(setAuthUsers);
     }
+
+    // Health Check
+    fetch('/api/health')
+      .then(r => r.json())
+      .then(setHealth)
+      .catch(() => setHealth({ status: 'offline', env: 'unknown' }));
   }, [isAdmin]);
 
   const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -962,13 +969,14 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
     setImportError(false);
     setImportStatus('Linking Source...');
     const result = await syncSitesFromRemote();
+    const time = new Date().toLocaleTimeString();
     if (result.success) {
-      setImportStatus(`Linked! Synchronized ${result.count} locations.`);
+      setImportStatus(`[${time}] Linked! Synchronized ${result.count} locations.`);
       const meta = await getSiteMetadata();
       setMetadata(meta);
     } else {
       setImportError(true);
-      setImportStatus(`Linked! Sync Issue: ${result.error}`);
+      setImportStatus(`[${time}] Linked! Sync Issue: ${result.error}`);
     }
     setTimeout(() => { setImportStatus(null); setImportError(false); }, 5000);
   };
@@ -1467,11 +1475,18 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
           </div>
         </section>
 
-        <div className="pt-8 border-t border-white/5">
+        <div className="pt-8 border-t border-white/5 space-y-4">
           <div className="bg-white/5 rounded-2xl p-6 text-center">
             <p className="text-[10px] text-white/20 font-mono tracking-tighter uppercase leading-relaxed">
               Configuration ID: SEPM-NODE-{new Date().getTime().toString(16).toUpperCase()} • ALL CHANGES PERSISTED LOCALLY
             </p>
+          </div>
+          
+          <div className="flex items-center justify-center gap-2">
+             <div className={cn("w-1.5 h-1.5 rounded-full", health?.status === 'ok' ? 'bg-teal-400' : 'bg-red-500')} />
+             <p className="text-[9px] font-black text-white/30 uppercase tracking-widest">
+               Backend State: {health ? `${health.status} (${health.env})` : 'Initializing...'}
+             </p>
           </div>
         </div>
       </div>
