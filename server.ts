@@ -12,7 +12,17 @@ async function startServer() {
   // Increase payload limit for PDF binary data
   app.use(bodyParser.json({ limit: '50mb' }));
 
+  // Request Logger for Debugging
+  app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} | ${req.method} ${req.url}`);
+    next();
+  });
+
   // API Routes
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", time: new Date().toISOString() });
+  });
+
   app.post("/api/upload-to-dropbox", async (req, res) => {
     const { pdfBase64, fileName, accessToken } = req.body;
 
