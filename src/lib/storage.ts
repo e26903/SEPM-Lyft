@@ -11,6 +11,7 @@ import {
   deleteDoc, 
   query, 
   orderBy,
+  where,
   serverTimestamp
 } from 'firebase/firestore';
 
@@ -80,7 +81,23 @@ export async function getAllInspections(): Promise<InspectionData[]> {
   }
 
   try {
-    const q = query(collection(db, 'inspections'), orderBy('createdAt', 'desc'));
+    const adminEmails = [
+      'crcjehaas@gmail.com', 
+      'charles_haas@outlook.com', 
+      'ruth_haas@outlook.com', 
+      'ruth.haas@sepmfix.com', 
+      'andy.phipps@sepmfix.com'
+    ];
+    const userEmail = user.email?.toLowerCase() || '';
+    const isAdmin = adminEmails.includes(userEmail) || userEmail.endsWith('@sepmfix.com');
+
+    let q;
+    if (isAdmin) {
+      q = query(collection(db, 'inspections'), orderBy('createdAt', 'desc'));
+    } else {
+      q = query(collection(db, 'inspections'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
+    }
+
     const querySnapshot = await getDocs(q);
     const inspections: InspectionData[] = [];
     

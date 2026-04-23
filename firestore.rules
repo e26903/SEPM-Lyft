@@ -8,10 +8,13 @@ service cloud.firestore {
 
     // Global helpers
     function isSignedIn() {
-      return request.auth != null && request.auth.token != null;
+      return request.auth != null && 
+             request.auth.token != null && 
+             'email' in request.auth.token && 
+             request.auth.token.email != null;
     }
 
-    function isAuthorized() {
+    function isHardcodedAdmin() {
       return isSignedIn() && (
         request.auth.token.email.lower() in [
           'crcjehaas@gmail.com', 
@@ -20,7 +23,13 @@ service cloud.firestore {
           'ruth.haas@sepmfix.com', 
           'andy.phipps@sepmfix.com'
         ] ||
-        request.auth.token.email.lower().endsWith('@sepmfix.com') ||
+        request.auth.token.email.lower().endsWith('@sepmfix.com')
+      );
+    }
+
+    function isAuthorized() {
+      return isSignedIn() && (
+        isHardcodedAdmin() ||
         exists(/databases/$(database)/documents/authorized_users/$(request.auth.token.email.lower()))
       );
     }
@@ -50,8 +59,8 @@ service cloud.firestore {
       }
 
       // Allow only authorized personnel to list and get reports
-      allow list: if isAuthorized();
-      allow get: if isAuthorized();
+      allow list: if isHardcodedAdmin() || (isAuthorized() && resource.data.userId == request.auth.uid);
+      allow get: if isHardcodedAdmin() || (isAuthorized() && existingData().userId == request.auth.uid);
 
       allow create: if isAuthorized() 
         && isValidId(inspectionId) 
@@ -59,14 +68,14 @@ service cloud.firestore {
         && incomingData().id == inspectionId;
 
       allow update: if isAuthorized()
-        && existingData().userId == request.auth.uid
+        && (existingData().userId == request.auth.uid || isHardcodedAdmin())
         && isValidInspection(incomingData())
         // Prevent editing submitted reports (terminal state)
-        && (existingData().status != 'submitted' || incomingData().status == 'submitted')
+        && (existingData().status != 'submitted' || incomingData().status == 'submitted' || isHardcodedAdmin())
         && incomingData().userId == existingData().userId
         && incomingData().id == existingData().id;
 
-      allow delete: if isAuthorized() && (existingData().userId == request.auth.uid || request.auth.token.email == 'crcjehaas@gmail.com');
+      allow delete: if isHardcodedAdmin() && (existingData().userId == request.auth.uid || request.auth.token.email.lower() == 'crcjehaas@gmail.com');
     }
 
     // Settings Rules
