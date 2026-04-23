@@ -51,6 +51,24 @@ async function startServer() {
     }
   });
 
+  // Proxy for Remote Site Sync (Bypass CORS)
+  app.get("/api/proxy-site-data", async (req, res) => {
+    const { url } = req.query;
+    if (!url || typeof url !== 'string') {
+      return res.status(400).json({ error: "Missing or invalid URL parameter" });
+    }
+
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+      const data = await response.text();
+      res.send(data);
+    } catch (error: any) {
+      console.error("Proxy Fetch Error:", error);
+      res.status(500).json({ error: "Failed to fetch remote data", details: error.message });
+    }
+  });
+
   const publicPath = path.join(process.cwd(), 'public');
 
   // Vite integration

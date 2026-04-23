@@ -249,8 +249,12 @@ export async function syncSitesFromRemote(): Promise<{ success: boolean; count: 
   if (!url) return { success: false, count: 0, error: "No remote URL configured." };
 
   try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    // Call our server-side proxy to bypass CORS
+    const response = await fetch(`/api/proxy-site-data?url=${encodeURIComponent(url)}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.details || `Server Error: ${response.status}`);
+    }
     
     const csvData = await response.text();
     
