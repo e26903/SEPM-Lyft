@@ -926,9 +926,7 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
         }
         return r.json();
       })
-      .then(data => {
-        setHealth(data);
-      })
+      .then(setHealth)
       .catch((err) => {
         console.error("Health Check Failed:", err.message);
         setHealth({ status: 'offline', env: `Error: ${err.message}` });
@@ -1144,7 +1142,7 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
       initial={{ opacity: 0, y: 20 }} 
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="flex-1 flex flex-col p-6 md:p-10 overflow-auto"
+      className="flex-1 flex flex-col p-4 md:p-10 overflow-x-hidden overflow-y-auto"
     >
       <header className="flex items-center gap-4 md:gap-6 mb-8 md:mb-12">
         <button onClick={onBack} className="p-2.5 md:p-3 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 transition-colors shadow-sm">
@@ -1178,24 +1176,24 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
         {/* Persistent Status Banners */}
         <div className="space-y-3">
           {metadata ? (
-            <div className="p-4 bg-teal-50 border border-teal-200 rounded-2xl flex items-center justify-between group">
+            <div className="p-4 bg-teal-50 border border-teal-200 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 group">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-teal-100 rounded-xl flex items-center justify-center text-teal-600 shadow-sm">
+                <div className="flex-shrink-0 w-10 h-10 bg-teal-100 rounded-xl flex items-center justify-center text-teal-600 shadow-sm">
                   <FileSpreadsheet size={20} />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-[10px] font-black text-teal-600 uppercase tracking-widest">Active Manifest</p>
-                  <p className="text-sm font-bold text-slate-900">{metadata.fileName}</p>
-                  <p className="text-[9px] text-slate-500 font-mono uppercase">{metadata.count} Sites • Linked {format(new Date(metadata.date), 'PPp')}</p>
+                  <p className="text-sm font-bold text-slate-900 truncate">{metadata.fileName}</p>
+                  <p className="text-[9px] text-slate-500 font-mono uppercase truncate">{metadata.count} Sites • Linked {format(new Date(metadata.date), 'PPp')}</p>
                 </div>
               </div>
-              <button onClick={handleClearData} className="p-2 opacity-0 group-hover:opacity-100 hover:bg-red-50 text-red-500 rounded-lg transition-all">
+              <button onClick={handleClearData} className="self-end md:self-auto p-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-red-50 text-red-500 rounded-lg transition-all">
                 <Trash2 size={16} />
               </button>
             </div>
           ) : (
             <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-4 border-dashed">
-              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-300">
+              <div className="flex-shrink-0 w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-300">
                 <FileSpreadsheet size={20} />
               </div>
               <div>
@@ -1206,27 +1204,27 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
           )}
 
           {url ? (
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex items-center justify-between group">
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 group">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 shadow-sm">
+                <div className="flex-shrink-0 w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 shadow-sm">
                   <Link2 size={20} />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Remote Sync Active</p>
-                  <p className="text-sm font-bold text-slate-900 truncate max-w-[280px] md:max-w-[400px]">{url}</p>
+                  <p className="text-sm font-bold text-slate-900 truncate max-w-[200px] xs:max-w-[280px] md:max-w-none">{url}</p>
                 </div>
               </div>
               <button 
                 onClick={handleManualSync}
                 title="Pull Updates Now"
-                className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20"
+                className="w-full md:w-auto p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 flex justify-center items-center"
               >
                 <RefreshCw size={18} className={importStatus === 'Synchronizing...' ? 'animate-spin' : ''} />
               </button>
             </div>
           ) : (
             <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-4 border-dashed">
-              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-300">
+              <div className="flex-shrink-0 w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-300">
                 <Link2 size={20} />
               </div>
               <div>
@@ -1273,7 +1271,7 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dropbox Access Token</label>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input 
                     type="password"
                     placeholder={import.meta.env.VITE_DROPBOX_ACCESS_TOKEN ? "Active (from environment)" : "sl.u.A1b2c3..."}
@@ -1283,7 +1281,7 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
                   />
                   <button 
                     onClick={handleSaveDbxToken}
-                    className="px-6 bg-sepm-cyan text-slate-900 font-black uppercase text-xs rounded-2xl hover:bg-sepm-cyan/90 transition-colors shadow-sm"
+                    className="w-full sm:w-auto px-6 py-4 sm:py-0 bg-sepm-cyan text-slate-900 font-black uppercase text-xs rounded-2xl hover:bg-sepm-cyan/90 transition-colors shadow-sm"
                   >
                     Authorize
                   </button>
@@ -1294,7 +1292,7 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Destination Path</label>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input 
                     type="text"
                     placeholder="Reporting/Inspections"
@@ -1304,7 +1302,7 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
                   />
                   <button 
                     onClick={handleSaveDestUrl}
-                    className="px-6 bg-sepm-cyan text-slate-900 font-black uppercase text-xs rounded-2xl hover:bg-sepm-cyan/90 transition-colors shadow-sm"
+                    className="w-full sm:w-auto px-6 py-4 sm:py-0 bg-sepm-cyan text-slate-900 font-black uppercase text-xs rounded-2xl hover:bg-sepm-cyan/90 transition-colors shadow-sm"
                   >
                     Save
                   </button>
@@ -1326,7 +1324,7 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
             </p>
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Stakeholder Recipients</label>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input 
                   type="text"
                   placeholder="Ruth.Haas@sepmfix.com, tech@sepm.com"
@@ -1336,7 +1334,7 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
                 />
                 <button 
                   onClick={handleSaveRecipients}
-                  className="px-6 bg-sepm-cyan text-slate-900 font-black uppercase text-xs rounded-2xl hover:bg-sepm-cyan/90 transition-colors shadow-sm"
+                  className="w-full sm:w-auto px-6 py-4 sm:py-0 bg-sepm-cyan text-slate-900 font-black uppercase text-xs rounded-2xl hover:bg-sepm-cyan/90 transition-colors shadow-sm"
                 >
                   Apply
                 </button>
@@ -1413,7 +1411,7 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
             <div className="space-y-6">
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none block ml-1">Source URL (Edit or CSV Link)</label>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input 
                     type="url"
                     placeholder="https://app.smartsheet.com/sheets/..."
@@ -1423,7 +1421,7 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
                   />
                   <button 
                     onClick={handleSaveUrl}
-                    className="px-6 bg-teal-500 text-white font-black uppercase text-xs rounded-2xl hover:bg-teal-600 shadow-md shadow-teal-500/10"
+                    className="w-full sm:w-auto px-6 py-4 sm:py-0 bg-teal-500 text-white font-black uppercase text-xs rounded-2xl hover:bg-teal-600 shadow-md shadow-teal-500/10"
                   >
                     Link
                   </button>
@@ -1497,22 +1495,22 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
               <div className="pt-6 space-y-3">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Active Authorization Allowlist</label>
                 <div className="grid grid-cols-1 gap-2">
-                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="flex flex-row items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 min-w-0">
                     <div className="flex items-center gap-3 overflow-hidden">
                       <div className="flex-shrink-0 w-2 h-2 bg-sepm-cyan rounded-full pulse" />
                       <span className="text-sm font-bold text-slate-900 truncate">crcjehaas@gmail.com</span>
                     </div>
-                    <span className="flex-shrink-0 text-[8px] font-black uppercase tracking-widest text-sepm-cyan bg-sepm-cyan/10 px-2 py-1 rounded">Admin</span>
+                    <span className="flex-shrink-0 text-[8px] font-black uppercase tracking-widest text-sepm-cyan bg-sepm-cyan/10 px-2 py-1 rounded ml-2">Admin</span>
                   </div>
                   {authUsers.filter(e => e !== 'crcjehaas@gmail.com').map(email => (
-                    <div key={email} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 group transition-all hover:bg-white shadow-sm">
-                      <div className="flex items-center gap-3 overflow-hidden">
-                        <div className="w-2 h-2 bg-slate-300 rounded-full" />
+                    <div key={email} className="flex flex-row items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 group transition-all hover:bg-white shadow-sm min-w-0">
+                      <div className="flex items-center gap-3 overflow-hidden min-w-0">
+                        <div className="flex-shrink-0 w-2 h-2 bg-slate-300 rounded-full" />
                         <span className="text-sm font-bold text-slate-700 truncate">{email}</span>
                       </div>
                       <button 
                         onClick={() => handleRemoveUser(email)}
-                        className="flex-shrink-0 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                        className="flex-shrink-0 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all ml-2"
                         title="Revoke Access"
                       >
                         <Trash2 size={16} />
@@ -1551,14 +1549,14 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
 
         <div className="pt-8 border-t border-slate-200 space-y-4">
           <div className="bg-slate-100/50 rounded-2xl p-6 text-center border border-slate-200/50">
-            <p className="text-[10px] text-slate-400 font-mono tracking-tighter uppercase leading-relaxed font-medium">
+            <p className="text-[10px] text-slate-400 font-mono tracking-tighter uppercase leading-relaxed font-medium break-words">
               Configuration ID: SEPM-NODE-{new Date().getTime().toString(16).toUpperCase()} • ALL CHANGES PERSISTED LOCALLY
             </p>
           </div>
           
           <div className="flex items-center justify-center gap-2">
              <div className={cn("w-1.5 h-1.5 rounded-full", health?.status === 'ok' ? 'bg-teal-500' : 'bg-red-500')} />
-             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center px-4 break-words">
                Backend State: {health ? `${health.status} (${health.env})` : 'Initializing...'}
              </p>
           </div>

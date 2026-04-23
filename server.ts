@@ -19,13 +19,17 @@ async function startServer() {
     next();
   });
 
-  // CRITICAL: Health Check at root level to bypass any router issues
+  // CRITICAL: Health Check at root levels to bypass any router issues
+  app.get("/health", (req, res) => {
+    res.json({ status: "ok", time: new Date().toISOString(), v: '7.2' });
+  });
+
   app.get("/api/health", (req, res) => {
     console.log("[HEALTH] Responding ok");
     res.json({ 
       status: "ok", 
       time: new Date().toISOString(), 
-      v: '7.1', 
+      v: '7.2', 
       env: process.env.NODE_ENV || 'production' 
     });
   });
