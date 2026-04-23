@@ -25,7 +25,8 @@ import {
   Link2,
   History,
   ShieldCheck,
-  UserPlus
+  UserPlus,
+  Lock
 } from 'lucide-react';
 import Papa from 'papaparse';
 import { format } from 'date-fns';
@@ -56,7 +57,10 @@ import {
   User,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider
 } from './lib/firebase';
 import { InspectionForm } from './components/InspectionForm';
 import { generateInspectionPDF } from './lib/pdf';
@@ -881,6 +885,12 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
   const [newAuthEmail, setNewAuthEmail] = useState('');
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<{ fileName: string; count: number; date: string } | null>(null);
+  
+  // Password Change State
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const isAdmin = auth.currentUser?.email === 'crcjehaas@gmail.com';
 
@@ -946,6 +956,45 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
     await saveEmailRecipients(recipients);
     setImportStatus('Stakeholder recipients updated.');
     setTimeout(() => setImportStatus(null), 2000);
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      alert("All fields are required");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      alert("New passwords do not match");
+      return;
+    }
+    if (newPassword.length < 6) {
+      alert("Password must be at least 6 characters");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const user = auth.currentUser;
+      if (!user || !user.email) throw new Error("No authenticated user");
+
+      // Re-authenticate
+      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(user, credential);
+      
+      // Update password
+      await updatePassword(user, newPassword);
+      
+      alert("Password updated successfully");
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      console.error("Password update failed:", error);
+      alert(`Update failed: ${error.message}`);
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
 
   const handleAddUser = async () => {
@@ -1160,6 +1209,62 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
                 </button>
               </div>
             </div>
+          </div>
+        </section>
+
+        <section className="space-y-6 opacity-80">
+          <div className="flex items-center gap-3 text-sepm-cyan">
+            <Lock size={20} />
+            <h3 className="font-black uppercase tracking-widest text-sm">Security & Access</h3>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-[32px] p-8 space-y-6">
+            <p className="text-sm text-white/60 leading-relaxed">
+              Update your account credentials. You will be required to enter your current password to authorize this sensitive change.
+            </p>
+            <form onSubmit={handlePasswordChange} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-4">Current Password</label>
+                  <input 
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    className="w-full bg-white/5 border border-white/10 px-5 py-4 rounded-2xl text-sm outline-none focus:border-sepm-cyan transition-all"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-4">New Password</label>
+                  <input 
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    className="w-full bg-white/5 border border-white/10 px-5 py-4 rounded-2xl text-sm outline-none focus:border-sepm-cyan transition-all"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-4">Confirm New</label>
+                  <input 
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    className="w-full bg-white/5 border border-white/10 px-5 py-4 rounded-2xl text-sm outline-none focus:border-sepm-cyan transition-all"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  />
+                </div>
+              </div>
+              <button 
+                type="submit"
+                disabled={isChangingPassword}
+                className="w-full py-5 bg-sepm-cyan text-slate-900 rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-white transition-all disabled:opacity-50"
+              >
+                {isChangingPassword ? 'Authorizing Change...' : 'Commit New Password'}
+              </button>
+            </form>
           </div>
         </section>
 
