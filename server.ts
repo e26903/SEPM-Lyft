@@ -9,29 +9,29 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // Increase payload limit for PDF binary data
+  // INCREASE PAYLOAD LIMIT
   app.use(bodyParser.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true }));
 
-  // GLOBAL LOGGER
+  // ROOT LEVEL LOGGING
   app.use((req, res, next) => {
-    if (req.url.startsWith('/api/')) {
-      console.log(`[API] ${req.method} ${req.url}`);
-    }
+    console.log(`[REQ] ${req.method} ${req.url}`);
     next();
+  });
+
+  // CRITICAL: Health Check at root level to bypass any router issues
+  app.get("/api/health", (req, res) => {
+    console.log("[HEALTH] Responding ok");
+    res.json({ 
+      status: "ok", 
+      time: new Date().toISOString(), 
+      v: '7.1', 
+      env: process.env.NODE_ENV || 'production' 
+    });
   });
 
   // Dedicated API Router
   const apiRouter = express.Router();
-
-  apiRouter.get("/health", (req, res) => {
-    res.json({ 
-      status: "ok", 
-      time: new Date().toISOString(), 
-      v: '7.0', 
-      env: process.env.NODE_ENV || 'production' 
-    });
-  });
 
   apiRouter.all("/smartsheet-api-proxy", async (req, res) => {
     console.log(`[API] Smartsheet Proxy Match: ${req.method}`);

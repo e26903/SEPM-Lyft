@@ -60,12 +60,14 @@ import {
   onAuthStateChanged, 
   User,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   updatePassword,
   reauthenticateWithCredential,
   EmailAuthProvider
 } from './lib/firebase';
+import { initializeApp, deleteApp } from 'firebase/app';
+import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import firebaseConfig from '../firebase-applet-config.json';
 import { InspectionForm } from './components/InspectionForm';
 import { generateInspectionPDF } from './lib/pdf';
 import { exportToCSV } from './lib/csv';
@@ -888,6 +890,8 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
   const [recipients, setRecipients] = useState('');
   const [authUsers, setAuthUsers] = useState<string[]>([]);
   const [newAuthEmail, setNewAuthEmail] = useState('');
+  const [newAuthPassword, setNewAuthPassword] = useState('');
+  const [isAddingUser, setIsAddingUser] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [health, setHealth] = useState<{ env: string; status: string } | null>(null);
   const [importError, setImportError] = useState<boolean>(false);
@@ -922,7 +926,9 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
         }
         return r.json();
       })
-      .then(setHealth)
+      .then(data => {
+        setHealth(data);
+      })
       .catch((err) => {
         console.error("Health Check Failed:", err.message);
         setHealth({ status: 'offline', env: `Error: ${err.message}` });
@@ -1062,12 +1068,52 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
       alert('Please enter a valid email address');
       return;
     }
-    await addAuthorizedUser(newAuthEmail);
-    const updated = await getAuthorizedUsers();
-    setAuthUsers(updated);
-    setNewAuthEmail('');
-    setImportStatus('User authorized successfully.');
-    setTimeout(() => setImportStatus(null), 2000);
+    if (!newAuthPassword) {
+      alert('Please enter an initial password for the new user');
+      return;
+    }
+    if (newAuthPassword.length < 6) {
+      alert('Password must be at least 6 characters');
+      return;
+    }
+
+    setIsAddingUser(true);
+    setImportStatus('Provisioning Access...');
+    
+    try {
+      // 1. Create a secondary Firebase App and Auth instance to create the user without logging out the current admin
+      const secondaryAppName = `Secondary-${Date.now()}`;
+      const secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
+      const secondaryAuth = getAuth(secondaryApp);
+      
+      try {
+        await createUserWithEmailAndPassword(secondaryAuth, newAuthEmail.trim(), newAuthPassword);
+      } catch (authErr: any) {
+        // If user already exists in Auth, we'll continue to add to allowlist or show error
+        if (authErr.code !== 'auth/email-already-in-use') {
+          throw authErr;
+        }
+        console.log("User already exists in Firebase Auth, ensuring allowlist entry.");
+      } finally {
+        await deleteApp(secondaryApp);
+      }
+
+      // 2. Add to the firestore allowlist
+      await addAuthorizedUser(newAuthEmail.trim());
+      
+      const updated = await getAuthorizedUsers();
+      setAuthUsers(updated);
+      setNewAuthEmail('');
+      setNewAuthPassword('');
+      setImportStatus('User provisioned & authorized successfully.');
+    } catch (error: any) {
+      console.error("Personnel provisioning failed:", error);
+      setImportError(true);
+      setImportStatus(`Access Issue: ${error.message}`);
+    } finally {
+      setIsAddingUser(false);
+      setTimeout(() => { setImportStatus(null); setImportError(false); }, 3000);
+    }
   };
 
   const handleRemoveUser = async (email: string) => {
@@ -1410,52 +1456,70 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
               <ShieldCheck size={20} />
               <h3 className="font-black uppercase tracking-widest text-sm text-slate-900">Personnel Authorization</h3>
             </div>
-            <div className="bg-white border border-slate-200 rounded-[32px] p-8 space-y-6 shadow-sm">
+            <div className="bg-white border border-slate-200 rounded-[32px] p-6 md:p-8 space-y-6 shadow-sm overflow-hidden">
               <p className="text-sm text-slate-600 leading-relaxed font-medium">
-                 Manage who can access the operational portal. Authorized users must sign in with their Google account matching the email below.
+                 Manage who can access the operational portal. Authorized users must sign in with their authorized email and password provided below.
               </p>
               
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Authorize New Stakeholder</label>
-                <div className="flex gap-2">
-                  <input 
-                    type="email"
-                    placeholder="teammate@sepmfix.com"
-                    className="flex-1 bg-slate-50 border border-slate-200 px-5 py-4 rounded-2xl text-sm outline-none focus:border-sepm-cyan transition-all text-slate-900"
-                    value={newAuthEmail}
-                    onChange={(e) => setNewAuthEmail(e.target.value)}
-                  />
-                  <button 
-                    onClick={handleAddUser}
-                    className="px-6 bg-sepm-cyan text-slate-900 font-black uppercase text-xs rounded-2xl hover:bg-sepm-cyan/90 transition-colors flex items-center justify-center gap-2 shadow-sm"
-                  >
-                    <UserPlus size={14} /> Add
-                  </button>
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Authorize & Provision New Stakeholder</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Email Address</label>
+                    <input 
+                      type="email"
+                      placeholder="teammate@sepmfix.com"
+                      className="w-full bg-slate-50 border border-slate-200 px-5 py-4 rounded-2xl text-sm outline-none focus:border-sepm-cyan transition-all text-slate-900"
+                      value={newAuthEmail}
+                      onChange={(e) => setNewAuthEmail(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-slate-400 uppercase ml-2">Initial Password</label>
+                    <input 
+                      type="text"
+                      placeholder="Enter Temporary Pwd"
+                      className="w-full bg-slate-50 border border-slate-200 px-5 py-4 rounded-2xl text-sm outline-none focus:border-sepm-cyan transition-all text-slate-900 font-mono"
+                      value={newAuthPassword}
+                      onChange={(e) => setNewAuthPassword(e.target.value)}
+                    />
+                  </div>
                 </div>
+                <button 
+                  onClick={handleAddUser}
+                  disabled={isAddingUser}
+                  className="w-full py-5 bg-sepm-cyan text-slate-900 font-black uppercase text-xs rounded-2xl hover:bg-sepm-cyan/90 transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+                >
+                  <UserPlus size={16} /> {isAddingUser ? 'Creating Account & Access...' : 'Create Account & Authorize Access'}
+                </button>
               </div>
 
               <div className="pt-6 space-y-3">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Active Authorization Allowlist</label>
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 gap-2">
                   <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
-                    <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 bg-sepm-cyan rounded-full pulse" />
-                      <span className="text-sm font-bold text-slate-900">crcjehaas@gmail.com</span>
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <div className="flex-shrink-0 w-2 h-2 bg-sepm-cyan rounded-full pulse" />
+                      <span className="text-sm font-bold text-slate-900 truncate">crcjehaas@gmail.com</span>
                     </div>
-                    <span className="text-[8px] font-black uppercase tracking-widest text-sepm-cyan bg-sepm-cyan/10 px-2 py-1 rounded">Organization Admin</span>
+                    <span className="flex-shrink-0 text-[8px] font-black uppercase tracking-widest text-sepm-cyan bg-sepm-cyan/10 px-2 py-1 rounded">Admin</span>
                   </div>
                   {authUsers.filter(e => e !== 'crcjehaas@gmail.com').map(email => (
-                    <div key={email} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 group">
-                      <span className="text-sm font-medium text-slate-700">{email}</span>
+                    <div key={email} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 group transition-all hover:bg-white shadow-sm">
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="w-2 h-2 bg-slate-300 rounded-full" />
+                        <span className="text-sm font-bold text-slate-700 truncate">{email}</span>
+                      </div>
                       <button 
                         onClick={() => handleRemoveUser(email)}
-                        className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                        className="flex-shrink-0 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                        title="Revoke Access"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   ))}
-                  {authUsers.length === 0 && (
+                  {authUsers.length <= 1 && (
                     <p className="text-[10px] text-slate-300 text-center py-4 italic font-medium uppercase tracking-tighter">No additional personnel authorized yet.</p>
                   )}
                 </div>
