@@ -12,26 +12,58 @@ async function startServer() {
   // Increase payload limit for PDF binary data
   app.use(bodyParser.json({ limit: '50mb' }));
 
-  // API ROUTES FIRST - NO ROUTER PREFIXING FOR MAX RELIABILITY
+  // GLOBAL LOGGER - SEE EVERY REQUEST TO DEBUG 404s
   app.use((req, res, next) => {
-    if (req.url.startsWith('/api/')) {
-      console.log(`[API REQUEST] ${new Date().toISOString()} | ${req.method} ${req.url}`);
-    }
+    console.log(`[REQ] ${new Date().toISOString()} | ${req.method} ${req.url} | UA: ${req.headers['user-agent']}`);
     next();
   });
 
+  // API ROUTES FIRST - NO ROUTER PREFIXING FOR MAX RELIABILITY
   app.get("/api/health", (req, res) => {
     console.log(`[API MATCH] Health Check`);
     res.json({ 
       status: "ok", 
       time: new Date().toISOString(), 
-      env: process.env.NODE_ENV || 'development',
+      env: process.env.NODE_ENV || 'production',
       platform: 'express',
-      v: '3.0'
+      v: '4.0'
     });
   });
 
+  // Dual-method Smartsheet Proxy for maximum compatibility
+  app.all("/api/smartsheet-api-proxy", async (req, res) => {
+    console.log(`[API MATCH] Smartsheet Sync (${req.method})`);
+    
+    // Support both GET (query) and POST (body)
+    const sheetId = req.method === 'POST' ? req.body.sheetId : req.query.sheetId;
+    const token = req.method === 'POST' ? req.body.token : req.query.token;
+
+    if (!sheetId || !token) {
+      console.warn("[API FAIL] Missing Auth/ID in Sync", { sheetId: !!sheetId, token: !!token });
+      return res.status(400).json({ error: "Missing Sheet ID or Authorization Token" });
+    }
+
+    try {
+      const response = await fetch(`https://api.smartsheet.com/2.0/sheets/${sheetId}`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error("[API FAIL] Smartsheet Response Error", response.status, errText);
+        throw new Error(`Smartsheet API returned ${response.status}`);
+      }
+
+      const data = await response.json();
+      res.json(data);
+    } catch (error: any) {
+      console.error("[API FAIL] Smartsheet Sync Exception", error.message);
+      res.status(500).json({ error: "Smartsheet API failed", details: error.message });
+    }
+  });
+
   app.post("/api/upload-to-dropbox", async (req, res) => {
+    console.log("[API MATCH] Dropbox Upload");
     const { pdfBase64, fileName, accessToken } = req.body;
     if (!pdfBase64 || !fileName) return res.status(400).json({ error: "Missing file data" });
     const token = accessToken || process.env.VITE_DROPBOX_ACCESS_TOKEN || process.env.DROPBOX_ACCESS_TOKEN;
@@ -48,7 +80,7 @@ async function startServer() {
       });
       res.json({ success: true, link: response.result.path_display });
     } catch (error: any) {
-      console.error("Dropbox Error:", error);
+      console.error("[API FAIL] Dropbox Error:", error);
       res.status(500).json({ error: "Dropbox upload failed", details: error?.error?.error_summary || error.message });
     }
   });
@@ -65,23 +97,8 @@ async function startServer() {
       res.setHeader('Content-Type', 'text/csv');
       res.send(data);
     } catch (error: any) {
+      console.error("[API FAIL] Proxy Fetch Error:", error);
       res.status(500).json({ error: "Fetch failed", details: error.message });
-    }
-  });
-
-  app.get("/api/smartsheet-api-proxy", async (req, res) => {
-    console.log(`[API MATCH] Smartsheet API: ${req.query.sheetId}`);
-    const { sheetId, token } = req.query;
-    if (!sheetId || !token) return res.status(400).json({ error: "Missing ID/Token" });
-    try {
-      const response = await fetch(`https://api.smartsheet.com/2.0/sheets/${sheetId}`, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
-      });
-      if (!response.ok) throw new Error(`Smartsheet API ${response.status}`);
-      const data = await response.json();
-      res.json(data);
-    } catch (error: any) {
-      res.status(500).json({ error: "Smartsheet API failed", details: error.message });
     }
   });
 

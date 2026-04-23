@@ -267,13 +267,18 @@ export async function syncSitesFromRemote(): Promise<{ success: boolean; count: 
     const sheetId = url.split('/sheets/')[1]?.split('?')[0];
     if (sheetId) {
       try {
-        const finalUrl = `/api/smartsheet-api-proxy?sheetId=${sheetId}&token=${encodeURIComponent(token)}`;
-        console.log("Sync: Calling API Proxy", finalUrl);
-        const response = await fetch(finalUrl);
+        const finalUrl = '/api/smartsheet-api-proxy';
+        console.log("Sync: Calling API Proxy (POST)", finalUrl);
+        const response = await fetch(finalUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sheetId, token })
+        });
+
         if (!response.ok) {
           console.error("Sync: API Proxy Failed", response.status, response.statusText);
           const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.details || `Server Error: ${response.status}`);
+          throw new Error(errorData.details || `SEPM-BACKEND-FAIL: ${response.status}`);
         }
         
         const sheetData = await response.json();
@@ -321,7 +326,7 @@ export async function syncSitesFromRemote(): Promise<{ success: boolean; count: 
     if (!response.ok) {
       console.error("Sync: CSV Proxy Failed", response.status, response.statusText);
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.details || `Server Error: ${response.status}`);
+      throw new Error(errorData.details || `SEPM-BACKEND-FAIL: ${response.status}`);
     }
     
     const csvData = await response.text();
