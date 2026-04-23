@@ -18,12 +18,14 @@ async function startServer() {
     next();
   });
 
-  // API Routes
-  app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", time: new Date().toISOString() });
+  // Dedicated API Router
+  const apiRouter = express.Router();
+
+  apiRouter.get("/health", (req, res) => {
+    res.json({ status: "ok", time: new Date().toISOString(), env: process.env.NODE_ENV });
   });
 
-  app.post("/api/upload-to-dropbox", async (req, res) => {
+  apiRouter.post("/upload-to-dropbox", async (req, res) => {
     const { pdfBase64, fileName, accessToken } = req.body;
 
     if (!pdfBase64 || !fileName) {
@@ -38,8 +40,6 @@ async function startServer() {
 
     try {
       const dbx = new Dropbox({ accessToken: token });
-      
-      // Convert base64 to Buffer
       const buffer = Buffer.from(pdfBase64, 'base64');
 
       const response = await dbx.filesUpload({
@@ -61,8 +61,7 @@ async function startServer() {
     }
   });
 
-  // Proxy for Remote Site Sync (Bypass CORS)
-  app.get("/api/proxy-site-data", async (req, res) => {
+  apiRouter.get("/proxy-site-data", async (req, res) => {
     const { url } = req.query;
     if (!url || typeof url !== 'string') {
       return res.status(400).json({ error: "Missing or invalid URL parameter" });
@@ -83,13 +82,10 @@ async function startServer() {
       const contentType = response.headers.get('content-type') || '';
       const data = await response.text();
       
-      console.log(`Proxy: Received ${data.length} bytes, Content-Type: ${contentType}`);
-      
-      // If it looks like HTML, it might be a login page
       if (data.includes('<!DOCTYPE html>') || data.includes('<html')) {
         res.status(422).json({ 
           error: "Invalid Source Format", 
-          details: "The URL returned an HTML page instead of a CSV. Please ensure your SmartSheet is 'Published to the Web' as a CSV (Public) and not just shared as a link."
+          details: "The URL returned an HTML page instead of a CSV. Please ensure your SmartSheet is 'Published to the Web' as a CSV."
         });
         return;
       }
@@ -102,8 +98,7 @@ async function startServer() {
     }
   });
 
-  // Proxy for Smartsheet API (Authorized Sync)
-  app.get("/api/smartsheet-api-proxy", async (req, res) => {
+  apiRouter.get("/smartsheet-api-proxy", async (req, res) => {
     const { sheetId, token } = req.query;
     if (!sheetId || typeof sheetId !== 'string' || !token || typeof token !== 'string') {
       return res.status(400).json({ error: "Missing Sheet ID or Authorization Token" });
@@ -129,6 +124,9 @@ async function startServer() {
       res.status(500).json({ error: "Failed to fetch Smartsheet data", details: error.message });
     }
   });
+
+  // Mount API Router before everything else
+  app.use("/api", apiRouter);
 
   const publicPath = path.join(process.cwd(), 'public');
 
