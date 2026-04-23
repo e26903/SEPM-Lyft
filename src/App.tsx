@@ -52,8 +52,6 @@ import {
 } from './lib/storage';
 import { 
   auth, 
-  googleProvider, 
-  signInWithPopup, 
   onAuthStateChanged, 
   User,
   signInWithEmailAndPassword,
@@ -85,9 +83,12 @@ export default function App() {
       setUser(u);
       setLoading(false);
       loadInspections();
+      if (u && currentScreen === 'welcome') {
+        setCurrentScreen('dashboard');
+      }
     });
     return () => unsubscribe();
-  }, []);
+  }, [currentScreen]);
 
   useEffect(() => {
     // Scroll entire screen to top when navigation occurs
@@ -346,40 +347,22 @@ export default function App() {
 function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loginMode, setLoginMode] = useState<'options' | 'email' | 'register'>('options');
+  const [showAuth, setShowAuth] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleGoogleLogin = async () => {
-    try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (error: any) {
-      console.error("Login failed:", error);
-      if (error.code === 'auth/popup-blocked') {
-        alert("The login popup was blocked by your browser. Please allow popups for this site and try again.");
-      } else if (error.code === 'auth/unauthorized-domain') {
-        alert("This domain is not authorized for login. If you are using a new URL (like Vercel), it must be added to the Authorized Domains in the Firebase Console.");
-      } else {
-        alert(`Authentication failed: ${error.message || 'Please try again.'}`);
-      }
-    }
-  };
-  
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
     
     setIsSubmitting(true);
     try {
-      if (loginMode === 'register') {
-        await createUserWithEmailAndPassword(auth, email.trim(), password);
-        alert("Account created successfully!");
-      } else {
-        await signInWithEmailAndPassword(auth, email.trim(), password);
-      }
+      await signInWithEmailAndPassword(auth, email.trim(), password);
     } catch (error: any) {
       console.error("Auth failed:", error);
       if (error.code === 'auth/user-not-found') {
-        alert("No account found with this email. Please check your spelling or register if you are pre-authorized.");
+        alert("No account found with this email. Please ensure your account has been provisioned by an administrator.");
+      } else if (error.code === 'auth/wrong-password') {
+        alert("Incorrect password. Please try again.");
       } else {
         alert(`Error: ${error.message}`);
       }
@@ -403,12 +386,18 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
 
   const user = auth.currentUser;
 
+  useEffect(() => {
+    if (user) {
+      onStart();
+    }
+  }, [user, onStart]);
+
   return (
     <motion.div 
       initial={{ opacity: 0 }} 
       animate={{ opacity: 1 }} 
       exit={{ opacity: 0 }}
-      className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-slate-50 overflow-y-auto"
+      className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-slate-50 overflow-y-auto relative"
     >
       <div className="w-full max-w-2xl mb-8">
         <div className="aspect-video shadow-2xl rounded-2xl overflow-hidden bg-black border border-slate-200">
@@ -433,47 +422,23 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
             </motion.button>
           </div>
         ) : (
-          <div className="space-y-4">
-            {loginMode === 'options' ? (
-              <div className="space-y-3">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleGoogleLogin}
-                  className="w-full py-5 bg-slate-900 text-white font-black rounded-full text-xs shadow-xl shadow-slate-900/10 transition-all uppercase tracking-[0.2em] flex items-center justify-center gap-4"
-                >
-                  <Mail size={18} /> Stakeholder Login (Google)
-                </motion.button>
-                
-                <div className="relative py-4">
-                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-slate-200" />
-                  <span className="relative bg-slate-50 px-4 text-[10px] font-black text-slate-300 uppercase tracking-widest">or</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setLoginMode('email')}
-                    className="py-5 bg-white border border-slate-200 text-slate-600 font-black rounded-3xl text-xs transition-all uppercase tracking-[0.1em] flex items-center justify-center gap-2"
-                  >
-                    Login
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setLoginMode('register')}
-                    className="py-5 bg-sepm-cyan/10 border border-sepm-cyan/20 text-sepm-cyan font-black rounded-3xl text-xs transition-all uppercase tracking-[0.1em] flex items-center justify-center gap-2"
-                  >
-                    Register
-                  </motion.button>
-                </div>
-              </div>
+          <div className="space-y-6">
+            {!showAuth ? (
+              <motion.button
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowAuth(true)}
+                className="px-16 py-5 bg-sepm-cyan hover:bg-sepm-cyan/90 text-white font-black rounded-full text-xl shadow-2xl shadow-sepm-cyan/30 transition-all uppercase tracking-[0.2em]"
+              >
+                Login
+              </motion.button>
             ) : (
-              <form onSubmit={handleEmailLogin} className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <form onSubmit={handleEmailLogin} className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
                 <div className="space-y-4 bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-xl">
                   <div className="text-left mb-6">
-                    <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">{loginMode === 'register' ? 'Create Account' : 'Portal Sign In'}</h3>
+                    <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Portal Sign In</h3>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Authorized Personnel Only</p>
                   </div>
 
@@ -483,7 +448,7 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
                       type="email"
                       required
                       placeholder="name@company.com"
-                      className="w-full bg-slate-50 border border-slate-100 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all"
+                      className="w-full bg-slate-50 border border-slate-100 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all font-medium"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                     />
@@ -494,7 +459,7 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
                       type="password"
                       required
                       placeholder="••••••••"
-                      className="w-full bg-slate-50 border border-slate-100 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all"
+                      className="w-full bg-slate-50 border border-slate-100 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all font-medium"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
@@ -504,25 +469,23 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
                     disabled={isSubmitting}
                     className="w-full py-5 bg-sepm-cyan text-white rounded-3xl font-black uppercase tracking-widest text-xs hover:brightness-110 shadow-lg shadow-sepm-cyan/20 disabled:opacity-50 transition-all mt-4"
                   >
-                    {isSubmitting ? 'Verifying Authorization...' : (loginMode === 'register' ? 'Initialize Account' : 'Enter Portal')}
+                    {isSubmitting ? 'Verifying Authorization...' : 'Enter Portal'}
                   </button>
                   
-                  <div className="flex justify-between items-center px-4 pt-4">
-                    {loginMode === 'email' && (
-                      <button 
-                        type="button"
-                        onClick={handleForgotPassword}
-                        className="text-[10px] text-slate-400 font-bold uppercase tracking-widest hover:text-sepm-cyan transition-colors"
-                      >
-                        Forgot Password?
-                      </button>
-                    )}
+                  <div className="flex flex-col space-y-4 pt-4">
                     <button 
                       type="button"
-                      onClick={() => setLoginMode('options')}
-                      className="text-[10px] text-sepm-cyan font-black uppercase tracking-widest hover:underline mx-auto"
+                      onClick={handleForgotPassword}
+                      className="text-[10px] text-slate-400 font-bold uppercase tracking-widest hover:text-sepm-cyan transition-colors mx-auto"
                     >
-                      Back to Options
+                      Forgot Password?
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setShowAuth(false)}
+                      className="text-[10px] text-slate-300 font-black uppercase tracking-widest hover:text-slate-900 transition-colors"
+                    >
+                      Back
                     </button>
                   </div>
                 </div>
@@ -535,16 +498,6 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
           <p className="text-slate-900 text-[10px] font-bold tracking-[0.4em] uppercase">
             SEPM Construction & Maintenance
           </p>
-          {!user && (
-            <div className="pt-2">
-              <a 
-                href="mailto:Ruth.Haas@sepmfix.com?subject=Access%20Request%20-%20SEPM%20Lyft%20Portal&body=Hello,%20I%20would%20like%20to%20request%20access%20to%20the%20SEPM%20Lyft%20Operational%20Portal.%0A%0AEmail:%20"
-                className="text-[10px] text-sepm-cyan font-black uppercase tracking-widest hover:underline"
-              >
-                Request Authorization
-              </a>
-            </div>
-          )}
           <p className="text-sepm-cyan text-[9px] font-mono font-bold tracking-widest">
             STATION INSPECTION PROTOCOL v1.0.44
           </p>
