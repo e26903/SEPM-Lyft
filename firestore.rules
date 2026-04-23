@@ -15,6 +15,13 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.email_verified == true;
     }
 
+    function isAuthorized() {
+      return isEmailVerified() && (
+        exists(/databases/$(database)/documents/authorized_users/$(request.auth.token.email)) ||
+        request.auth.token.email == 'crcjehaas@gmail.com' // Bootstrap Admin
+      );
+    }
+
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
@@ -39,16 +46,16 @@ service cloud.firestore {
           && data.userId == request.auth.uid;
       }
 
-      // Allow all verified team members to list and get reports
-      allow list: if isEmailVerified();
-      allow get: if isEmailVerified();
+      // Allow only authorized personnel to list and get reports
+      allow list: if isAuthorized();
+      allow get: if isAuthorized();
 
-      allow create: if isEmailVerified() 
+      allow create: if isAuthorized() 
         && isValidId(inspectionId) 
         && isValidInspection(incomingData())
         && incomingData().id == inspectionId;
 
-      allow update: if isEmailVerified()
+      allow update: if isAuthorized()
         && existingData().userId == request.auth.uid
         && isValidInspection(incomingData())
         // Prevent editing submitted reports (terminal state)
@@ -56,13 +63,19 @@ service cloud.firestore {
         && incomingData().userId == existingData().userId
         && incomingData().id == existingData().id;
 
-      allow delete: if isEmailVerified() && existingData().userId == request.auth.uid;
+      allow delete: if isAuthorized() && (existingData().userId == request.auth.uid || request.auth.token.email == 'crcjehaas@gmail.com');
     }
 
     // Settings Rules
     match /settings/{settingId} {
-      allow read: if isEmailVerified();
-      allow write: if isEmailVerified(); // For now, allow technicians to update settings (like Dropbox token)
+      allow read: if isAuthorized();
+      allow write: if isAuthorized();
+    }
+
+    // User Management Rules
+    match /authorized_users/{email} {
+      allow read: if isAuthorized();
+      allow write: if isAuthorized() && request.auth.token.email == 'crcjehaas@gmail.com';
     }
   }
 }

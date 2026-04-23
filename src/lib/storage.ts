@@ -191,3 +191,29 @@ export async function getEmailRecipients(): Promise<string> {
   if (cloud) return cloud;
   return await settingsStore.getItem('email_recipients') || 'Ruth.Haas@sepmfix.com';
 }
+
+export async function getAuthorizedUsers(): Promise<string[]> {
+  try {
+    const querySnapshot = await getDocs(collection(db, 'authorized_users'));
+    const users: string[] = [];
+    querySnapshot.forEach((doc) => {
+      users.push(doc.id); // The ID is the email
+    });
+    return users;
+  } catch (error) {
+    console.error("Failed to fetch authorized users:", error);
+    return [];
+  }
+}
+
+export async function addAuthorizedUser(email: string) {
+  const emailId = email.toLowerCase().trim();
+  await setDoc(doc(db, 'authorized_users', emailId), { 
+    addedAt: serverTimestamp(),
+    addedBy: auth.currentUser?.email 
+  });
+}
+
+export async function removeAuthorizedUser(email: string) {
+  await deleteDoc(doc(db, 'authorized_users', email));
+}

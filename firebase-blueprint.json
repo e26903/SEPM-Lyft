@@ -36,6 +36,10 @@
     "/settings/{settingId}": {
       "schema": "AppSetting",
       "description": "Global settings for the application."
+    },
+    "/authorized_users/{email}": {
+      "schema": "object",
+      "description": "List of emails permitted to access the operational portal."
     }
   }
 }

@@ -23,7 +23,9 @@ import {
   Settings as SettingsIcon,
   Upload,
   Link2,
-  History
+  History,
+  ShieldCheck,
+  UserPlus
 } from 'lucide-react';
 import Papa from 'papaparse';
 import { format } from 'date-fns';
@@ -43,7 +45,10 @@ import {
   getDropboxToken,
   saveDropboxToken,
   getEmailRecipients,
-  saveEmailRecipients
+  saveEmailRecipients,
+  getAuthorizedUsers,
+  addAuthorizedUser,
+  removeAuthorizedUser
 } from './lib/storage';
 import { auth, googleProvider, signInWithPopup, onAuthStateChanged, User } from './lib/firebase';
 import { InspectionForm } from './components/InspectionForm';
@@ -374,10 +379,20 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
         </motion.button>
       )}
 
-      <div className="space-y-2 opacity-40">
+      <div className="space-y-4 pt-12 border-t border-white/5 opacity-40">
         <p className="text-slate-900 text-[10px] font-bold tracking-[0.4em] uppercase">
           SEPM Construction & Maintenance
         </p>
+        {!user && (
+          <div className="pt-2">
+            <a 
+              href="mailto:Ruth.Haas@sepmfix.com?subject=Access%20Request%20-%20SEPM%20Lyft%20Portal&body=Hello,%20I%20would%20like%20to%20request%20access%20to%20the%20SEPM%20Lyft%20Operational%20Portal.%0A%0AEmail:%20"
+              className="text-[10px] text-sepm-cyan font-black uppercase tracking-widest hover:underline"
+            >
+              Request Authorization
+            </a>
+          </div>
+        )}
         <p className="text-sepm-cyan text-[9px] font-mono font-bold tracking-widest">
           STATION INSPECTION PROTOCOL v1.0.44
         </p>
@@ -756,8 +771,12 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
   const [destUrl, setDestUrl] = useState('');
   const [dbxToken, setDbxToken] = useState('');
   const [recipients, setRecipients] = useState('');
+  const [authUsers, setAuthUsers] = useState<string[]>([]);
+  const [newAuthEmail, setNewAuthEmail] = useState('');
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<{ fileName: string; count: number; date: string } | null>(null);
+
+  const isAdmin = auth.currentUser?.email === 'crcjehaas@gmail.com';
 
   useEffect(() => {
     getSmartsheetUrl().then(setUrl);
@@ -765,7 +784,10 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
     getDropboxToken().then(setDbxToken);
     getEmailRecipients().then(setRecipients);
     getSiteMetadata().then(setMetadata);
-  }, []);
+    if (isAdmin) {
+      getAuthorizedUsers().then(setAuthUsers);
+    }
+  }, [isAdmin]);
 
   const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -818,6 +840,27 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
     await saveEmailRecipients(recipients);
     setImportStatus('Stakeholder recipients updated.');
     setTimeout(() => setImportStatus(null), 2000);
+  };
+
+  const handleAddUser = async () => {
+    if (!newAuthEmail || !newAuthEmail.includes('@')) {
+      alert('Please enter a valid email address');
+      return;
+    }
+    await addAuthorizedUser(newAuthEmail);
+    const updated = await getAuthorizedUsers();
+    setAuthUsers(updated);
+    setNewAuthEmail('');
+    setImportStatus('User authorized successfully.');
+    setTimeout(() => setImportStatus(null), 2000);
+  };
+
+  const handleRemoveUser = async (email: string) => {
+    if (window.confirm(`Revoke access for ${email}?`)) {
+      await removeAuthorizedUser(email);
+      const updated = await getAuthorizedUsers();
+      setAuthUsers(updated);
+    }
   };
 
   const handleSaveDbxToken = async () => {
@@ -1043,6 +1086,66 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
             </div>
           </div>
         </section>
+
+        {isAdmin && (
+          <section className="space-y-6">
+            <div className="flex items-center gap-3 text-sepm-cyan">
+              <ShieldCheck size={20} />
+              <h3 className="font-black uppercase tracking-widest text-sm">Personnel Authorization</h3>
+            </div>
+            <div className="bg-white/5 border border-white/10 rounded-[32px] p-8 space-y-6">
+              <p className="text-sm text-white/60 leading-relaxed">
+                 Manage who can access the operational portal. Authorized users must sign in with their Google account matching the email below.
+              </p>
+              
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Authorize New Stakeholder</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="email"
+                    placeholder="teammate@sepmfix.com"
+                    className="flex-1 bg-white/5 border border-white/10 px-5 py-4 rounded-2xl text-sm outline-none focus:border-sepm-cyan transition-all"
+                    value={newAuthEmail}
+                    onChange={(e) => setNewAuthEmail(e.target.value)}
+                  />
+                  <button 
+                    onClick={handleAddUser}
+                    className="px-6 bg-sepm-cyan text-slate-900 font-black uppercase text-xs rounded-2xl hover:bg-white transition-colors flex items-center justify-center gap-2"
+                  >
+                    <UserPlus size={14} /> Add
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-6 space-y-3">
+                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block mb-2">Active Authorization Allowlist</label>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 bg-sepm-cyan rounded-full pulse" />
+                      <span className="text-sm font-bold text-white">crcjehaas@gmail.com</span>
+                    </div>
+                    <span className="text-[8px] font-black uppercase tracking-widest text-sepm-cyan bg-sepm-cyan/10 px-2 py-1 rounded">Organization Admin</span>
+                  </div>
+                  {authUsers.filter(e => e !== 'crcjehaas@gmail.com').map(email => (
+                    <div key={email} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 group">
+                      <span className="text-sm font-medium text-white/80">{email}</span>
+                      <button 
+                        onClick={() => handleRemoveUser(email)}
+                        className="p-2 text-white/20 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                  {authUsers.length === 0 && (
+                    <p className="text-[10px] text-white/20 text-center py-4 italic">No additional personnel authorized yet.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         <section className="space-y-6 opacity-80">
           <div className="flex items-center gap-3 text-red-500">
