@@ -175,6 +175,17 @@ export async function getSmartsheetUrl(): Promise<string> {
   return await settingsStore.getItem('smartsheet_url') || '';
 }
 
+export async function saveSmartsheetToken(token: string) {
+  await settingsStore.setItem('smartsheet_token', token);
+  await saveCloudSetting('smartsheet_token', token);
+}
+
+export async function getSmartsheetToken(): Promise<string> {
+  const cloud = await getCloudSetting('smartsheet_token');
+  if (cloud) return cloud;
+  return await settingsStore.getItem('smartsheet_token') || '';
+}
+
 export async function saveDestinationUrl(url: string) {
   await saveCloudSetting('destination_url', url);
   await settingsStore.setItem('destination_url', url);
@@ -246,8 +257,59 @@ export async function removeAuthorizedUser(email: string) {
 // REMOTE SYNC (BETA)
 export async function syncSitesFromRemote(): Promise<{ success: boolean; count: number; error?: string }> {
   const url = await getSmartsheetUrl();
+  const token = await getSmartsheetToken();
+  
   if (!url) return { success: false, count: 0, error: "No remote URL configured." };
 
+  // Detect if we should use API Synchronization
+  const isSmartsheetEditUrl = url.includes('app.smartsheet.com/sheets/');
+  if (isSmartsheetEditUrl && token) {
+    const sheetId = url.split('/sheets/')[1]?.split('?')[0];
+    if (sheetId) {
+      try {
+        const response = await fetch(`/api/smartsheet-api-proxy?sheetId=${sheetId}&token=${encodeURIComponent(token)}`);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.details || `Server Error: ${response.status}`);
+        }
+        
+        const sheetData = await response.json();
+        const columns = sheetData.columns || [];
+        const rows = sheetData.rows || [];
+
+        const mapped: Site[] = rows.map((row: any) => {
+          const getVal = (searchKeys: string[]) => {
+            const col = columns.find((c: any) => 
+              searchKeys.some(sk => c.title.trim().toLowerCase().replace(/\s+/g, ' ') === sk.toLowerCase())
+            );
+            if (!col) return '';
+            const cell = row.cells.find((c: any) => c.columnId === col.id);
+            return cell?.displayValue || cell?.value || '';
+          };
+
+          return {
+            storeNo: String(getVal(['Location ID', 'Store #', 'Site ID', 'Store Number', 'Site Number', 'ID', 'Location', 'Store No', 'Store', 'Site', 'Loc', 'Station ID', 'Station #', 'Location Number']) || '').trim(),
+            city: String(getVal(['City', 'Town', 'Location City', 'Municipality']) || '').trim(),
+            state: String(getVal(['State', 'Province', 'ST', 'Region']) || '').trim(),
+            streetAddress1: String(getVal(['Address', 'Street', 'Street Address', 'Address 1', 'Full Address', 'Location Address', 'Site Address']) || '').trim(),
+            zipcode: String(getVal(['Zip', 'Zipcode', 'Postal Code', 'Zip Code', 'PC']) || '').trim()
+          };
+        }).filter((s: Site) => s.storeNo);
+
+        if (mapped.length > 0) {
+          await saveSites(mapped, { fileName: 'Smartsheet API', count: mapped.length, date: new Date().toISOString() });
+          return { success: true, count: mapped.length };
+        } else {
+          return { success: false, count: 0, error: "No valid sites found in sheet via API." };
+        }
+      } catch (err: any) {
+        console.error("Smartsheet API Sync failed:", err);
+        return { success: false, count: 0, error: `API Sync Failed: ${err.message}` };
+      }
+    }
+  }
+
+  // Fallback to CSV / Proxy fetch
   try {
     // Call our server-side proxy to bypass CORS
     const response = await fetch(`/api/proxy-site-data?url=${encodeURIComponent(url)}`);
@@ -263,22 +325,32 @@ export async function syncSitesFromRemote(): Promise<{ success: boolean; count: 
         header: true,
         skipEmptyLines: true,
         complete: async (results) => {
+          console.log("Remote Sync: Parsed", results.data.length, "rows");
+          if (results.data.length > 0) {
+            console.log("Sample Row Keys:", Object.keys(results.data[0]));
+          }
+
           const mapped: Site[] = results.data.map((row: any) => {
             // Fuzzy match headers
             const getVal = (keys: string[]) => {
-              const key = Object.keys(row).find(k => keys.includes(k.trim()));
-              return key ? row[key] : '';
+              const key = Object.keys(row).find(k => {
+                const normalized = k.trim().toLowerCase().replace(/^\uFEFF/, '').replace(/\s+/g, ' ');
+                return keys.some(searchKey => normalized === searchKey.toLowerCase());
+              });
+              return key ? String(row[key]).trim() : '';
             };
 
             return {
-              storeNo: getVal(['Location ID', 'Store #', 'Site ID', 'Store Number', 'Site Number', 'ID', 'Location', 'Store No']) || '',
-              city: getVal(['City', 'Town', 'Location City']) || '',
-              state: getVal(['State', 'Province', 'ST']) || '',
-              streetAddress1: getVal(['Address', 'Street', 'Street Address', 'Address 1', 'Full Address', 'Location Address']) || '',
-              zipcode: getVal(['Zip', 'Zipcode', 'Postal Code', 'Zip Code']) || ''
+              storeNo: getVal(['Location ID', 'Store #', 'Site ID', 'Store Number', 'Site Number', 'ID', 'Location', 'Store No', 'Store', 'Site', 'Loc', 'Station ID', 'Station #', 'Location Number']) || '',
+              city: getVal(['City', 'Town', 'Location City', 'Municipality']) || '',
+              state: getVal(['State', 'Province', 'ST', 'Region']) || '',
+              streetAddress1: getVal(['Address', 'Street', 'Street Address', 'Address 1', 'Full Address', 'Location Address', 'Site Address']) || '',
+              zipcode: getVal(['Zip', 'Zipcode', 'Postal Code', 'Zip Code', 'PC']) || ''
             };
           }).filter(s => s.storeNo);
 
+          console.log("Remote Sync: Mapped", mapped.length, "valid sites");
+          
           if (mapped.length > 0) {
             const metadata = {
               fileName: 'Remote Source',
@@ -288,7 +360,12 @@ export async function syncSitesFromRemote(): Promise<{ success: boolean; count: 
             await saveSites(mapped, metadata);
             resolve({ success: true, count: mapped.length });
           } else {
-            resolve({ success: false, count: 0, error: "No valid sites found in source." });
+            const foundHeaders = results.data.length > 0 ? Object.keys(results.data[0]).join(', ') : 'None';
+            resolve({ 
+              success: false, 
+              count: 0, 
+              error: `No 'Location ID' columns found. Found headers: ${foundHeaders}. Please ensure one column is named 'Location ID' or 'Store #'.` 
+            });
           }
         },
         error: (err) => {

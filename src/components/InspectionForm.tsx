@@ -524,34 +524,54 @@ function GeneralInfoStep({ register, setValue, watch, disabled, errors }: any) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [allSites, setAllSites] = useState<Site[]>(SITES);
 
-  React.useEffect(() => {
+  const loadSites = React.useCallback(() => {
     getImportedSites().then(imported => {
-      if (imported && imported.length > 0) {
-        // Merge without duplicates (using storeNo as key)
-        const combined = [...imported];
-        const existingNos = new Set(imported.map(s => s.storeNo));
-        
-        SITES.forEach(s => {
-          if (!existingNos.has(s.storeNo)) {
-            combined.push(s);
-          }
-        });
-        
-        setAllSites(combined);
+      const combined = (imported && imported.length > 0) ? [...imported] : [];
+      const existingNos = new Set(combined.map(s => String(s.storeNo).toLowerCase().trim()));
+      
+      SITES.forEach(s => {
+        const normalized = String(s.storeNo).toLowerCase().trim();
+        if (!existingNos.has(normalized)) {
+          combined.push(s);
+        }
+      });
+      
+      setAllSites(combined);
+      if (imported?.length > 0) {
+        console.log(`Diagnostic: Loaded ${combined.length} total stations (${imported.length} imported).`);
       }
     });
   }, []);
+
+  React.useEffect(() => {
+    loadSites();
+  }, [loadSites]);
   
   // Fuzzy search and filter
   const filteredSites = React.useMemo(() => {
     if (!storeSearch || disabled) return [];
-    const search = storeSearch.toLowerCase();
-    return allSites.filter(s => 
-      String(s.storeNo || '').toLowerCase().includes(search) ||
-      String(s.city || '').toLowerCase().includes(search) ||
-      String(s.streetAddress1 || '').toLowerCase().includes(search) ||
-      String((s as any).name || '').toLowerCase().includes(search)
-    ).slice(0, 50); 
+    const search = storeSearch.toLowerCase().trim();
+    if (search.length < 1) return [];
+
+    return allSites
+      .filter(s => {
+        const storeNo = String(s.storeNo || '').toLowerCase();
+        const city = String(s.city || '').toLowerCase();
+        const address = String(s.streetAddress1 || '').toLowerCase();
+        
+        return storeNo.includes(search) || 
+               city.includes(search) || 
+               address.includes(search);
+      })
+      .sort((a, b) => {
+        // Boost exact store no matches to top
+        const aNo = String(a.storeNo || '').toLowerCase();
+        const bNo = String(b.storeNo || '').toLowerCase();
+        if (aNo === search) return -1;
+        if (bNo === search) return 1;
+        return 0;
+      })
+      .slice(0, 50); 
   }, [storeSearch, allSites, disabled]);
 
   const handleSelectSite = (site: Site) => {
@@ -586,7 +606,12 @@ function GeneralInfoStep({ register, setValue, watch, disabled, errors }: any) {
                 setStoreSearch(e.target.value);
                 setShowDropdown(true);
               }}
-              onFocus={() => !disabled && setShowDropdown(true)}
+              onFocus={() => {
+                if (!disabled) {
+                  setShowDropdown(true);
+                  loadSites();
+                }
+              }}
             />
             <SearchIcon className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
           </div>
@@ -599,18 +624,30 @@ function GeneralInfoStep({ register, setValue, watch, disabled, errors }: any) {
                 exit={{ opacity: 0, y: -10 }}
                 className="absolute z-50 left-0 right-0 top-full mt-2 bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-2xl max-h-[300px] overflow-y-auto"
               >
-                {filteredSites.length > 0 ? filteredSites.map(s => (
-                  <button
-                    key={s.storeNo}
-                    type="button"
-                    onClick={() => handleSelectSite(s)}
-                    className="w-full text-left p-5 hover:bg-sepm-cyan group transition-colors border-b border-slate-50 last:border-b-0"
-                  >
-                    <div className="font-black text-sm text-slate-900 group-hover:text-white">Store #{s.storeNo}</div>
-                    <div className="text-[10px] text-slate-400 group-hover:text-white/80 font-bold uppercase tracking-tight">{s.streetAddress1}, {s.city}</div>
-                  </button>
-                )) : (
-                  <div className="p-8 text-xs text-slate-400 font-bold uppercase italic text-center">No matching stations found</div>
+                {filteredSites.length > 0 ? (
+                  filteredSites.map(s => (
+                    <button
+                      key={`${s.storeNo}-${s.streetAddress1}`}
+                      type="button"
+                      onClick={() => handleSelectSite(s)}
+                      className="w-full text-left p-5 hover:bg-sepm-cyan group transition-colors border-b border-slate-50 last:border-b-0"
+                    >
+                      <div className="font-black text-sm text-slate-900 group-hover:text-white">Store #{s.storeNo}</div>
+                      <div className="text-[10px] text-slate-400 group-hover:text-white/80 font-bold uppercase tracking-tight">{s.streetAddress1}, {s.city}</div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="p-10 text-center space-y-4">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">No Matching Stations Found</p>
+                    {allSites.length === SITES.length && (
+                      <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
+                        <p className="text-[9px] text-amber-700 font-bold uppercase leading-relaxed italic">
+                          Database contains built-in sites only. 
+                          <br />Verify Remote Sync in Configuration for new locations.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 )}
               </motion.div>
             )}

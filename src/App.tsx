@@ -46,6 +46,8 @@ import {
   saveDestinationUrl,
   getDropboxToken,
   saveDropboxToken,
+  getSmartsheetToken,
+  saveSmartsheetToken,
   getEmailRecipients,
   saveEmailRecipients,
   getAuthorizedUsers,
@@ -880,12 +882,14 @@ function SuccessScreen({ inspection, onDashboard }: { inspection: InspectionData
 
 function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
   const [url, setUrl] = useState('');
+  const [smartsheetToken, setSmartsheetToken] = useState('');
   const [destUrl, setDestUrl] = useState('');
   const [dbxToken, setDbxToken] = useState('');
   const [recipients, setRecipients] = useState('');
   const [authUsers, setAuthUsers] = useState<string[]>([]);
   const [newAuthEmail, setNewAuthEmail] = useState('');
   const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [importError, setImportError] = useState<boolean>(false);
   const [metadata, setMetadata] = useState<{ fileName: string; count: number; date: string } | null>(null);
   
   // Password Change State
@@ -898,6 +902,7 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
 
   useEffect(() => {
     getSmartsheetUrl().then(setUrl);
+    getSmartsheetToken().then(setSmartsheetToken);
     getDestinationUrl().then(setDestUrl);
     getDropboxToken().then(setDbxToken);
     getEmailRecipients().then(setRecipients);
@@ -944,6 +949,17 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
 
   const handleSaveUrl = async () => {
     await saveSmartsheetUrl(url);
+    await saveSmartsheetToken(smartsheetToken);
+    
+    // If no token AND it's an EDIT URL, warn about CSV
+    if (!smartsheetToken && url && (url.includes('app.smartsheet.com/sheets/') || url.includes('app.smartsheet.com/b/'))) {
+      setImportStatus('Warning: Using a regular link without an API Token. Use the "Publish as CSV" link OR provide a Smartsheet API Token below.');
+      setImportError(true);
+      setTimeout(() => { setImportStatus(null); setImportError(false); }, 10000);
+      return;
+    }
+    
+    setImportError(false);
     setImportStatus('Linking Source...');
     const result = await syncSitesFromRemote();
     if (result.success) {
@@ -951,12 +967,14 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
       const meta = await getSiteMetadata();
       setMetadata(meta);
     } else {
-      setImportStatus(`Linked! (Sync Pending: ${result.error})`);
+      setImportError(true);
+      setImportStatus(`Linked! Sync Issue: ${result.error}`);
     }
-    setTimeout(() => setImportStatus(null), 3000);
+    setTimeout(() => { setImportStatus(null); setImportError(false); }, 5000);
   };
 
   const handleManualSync = async () => {
+    setImportError(false);
     setImportStatus('Synchronizing...');
     const result = await syncSitesFromRemote();
     if (result.success) {
@@ -964,9 +982,10 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
       const meta = await getSiteMetadata();
       setMetadata(meta);
     } else {
+      setImportError(true);
       setImportStatus(`Sync Failed: ${result.error}`);
     }
-    setTimeout(() => setImportStatus(null), 3000);
+    setTimeout(() => { setImportStatus(null); setImportError(false); }, 6000);
   };
 
   const handleSaveDestUrl = async () => {
@@ -1071,6 +1090,27 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
       </header>
 
       <div className="max-w-2xl space-y-12 pb-24">
+        {/* Universal Status Result */}
+        <AnimatePresence>
+          {importStatus && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className={cn(
+                "p-4 rounded-2xl border font-black uppercase tracking-widest text-[11px] text-center shadow-2xl",
+                importError 
+                  ? "bg-red-500 border-red-600 text-white" 
+                  : "bg-teal-400 border-teal-500 text-slate-900"
+              )}>
+                {importStatus}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Persistent Status Banners */}
         <div className="space-y-3">
           {metadata ? (
@@ -1154,9 +1194,6 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
                 <span className="text-[11px] font-black uppercase tracking-widest text-white/30">Select New CSV</span>
               </div>
             </div>
-            {importStatus && (
-              <p className="text-[11px] font-black text-teal-400 animate-pulse uppercase tracking-wider text-center">{importStatus}</p>
-            )}
           </div>
         </section>
 
@@ -1309,22 +1346,41 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
             <p className="text-sm text-white/60 leading-relaxed">
               Connect directly to a live Smart Sheet or API endpoint for real-time Location ID fetching.
             </p>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Source Data URL</label>
-              <div className="flex gap-2">
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest leading-none block ml-1">Source URL (Edit or CSV Link)</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="url"
+                    placeholder="https://app.smartsheet.com/sheets/..."
+                    className="flex-1 bg-white/5 border border-white/10 px-5 py-4 rounded-2xl text-sm outline-none focus:border-teal-400 transition-all font-mono"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                  />
+                  <button 
+                    onClick={handleSaveUrl}
+                    className="px-6 bg-teal-400 text-slate-900 font-black uppercase text-xs rounded-2xl hover:bg-teal-300 shadow-lg shadow-teal-400/10"
+                  >
+                    Link
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between items-center ml-1">
+                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Smartsheet Access Token</label>
+                  <a href="https://app.smartsheet.com/b/home" target="_blank" rel="noopener noreferrer" className="text-[9px] text-teal-400 font-bold uppercase hover:underline">Where do I find this?</a>
+                </div>
                 <input 
-                  type="url"
-                  placeholder="https://publish.smartsheet.com/..."
-                  className="flex-1 bg-white/5 border border-white/10 px-5 py-4 rounded-2xl text-sm outline-none focus:border-teal-400 transition-all font-mono"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
+                  type="password"
+                  placeholder="Paste your API Token here..."
+                  className="w-full bg-white/5 border border-white/10 px-5 py-4 rounded-2xl text-sm outline-none focus:border-teal-400 transition-all font-mono"
+                  value={smartsheetToken}
+                  onChange={(e) => setSmartsheetToken(e.target.value)}
                 />
-                <button 
-                  onClick={handleSaveUrl}
-                  className="px-6 bg-teal-400 text-slate-900 font-black uppercase text-xs rounded-2xl hover:bg-teal-300"
-                >
-                  Link
-                </button>
+                <p className="text-[9px] text-white/30 px-2 leading-relaxed uppercase font-bold italic mt-1">
+                  Required if you cannot use the "Publish as CSV" feature. Token is found in Personal Settings &gt; API Access.
+                </p>
               </div>
             </div>
           </div>

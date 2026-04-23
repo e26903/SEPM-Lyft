@@ -59,13 +59,64 @@ async function startServer() {
     }
 
     try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+      console.log(`Proxy: Fetching from ${url}`);
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'text/csv, text/plain, */*'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Remote Source returned HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const contentType = response.headers.get('content-type') || '';
       const data = await response.text();
+      
+      console.log(`Proxy: Received ${data.length} bytes, Content-Type: ${contentType}`);
+      
+      // If it looks like HTML, it might be a login page
+      if (data.includes('<!DOCTYPE html>') || data.includes('<html')) {
+        res.status(422).json({ 
+          error: "Invalid Source Format", 
+          details: "The URL returned an HTML page instead of a CSV. Please ensure your SmartSheet is 'Published to the Web' as a CSV (Public) and not just shared as a link."
+        });
+        return;
+      }
+
+      res.setHeader('Content-Type', 'text/csv');
       res.send(data);
     } catch (error: any) {
       console.error("Proxy Fetch Error:", error);
       res.status(500).json({ error: "Failed to fetch remote data", details: error.message });
+    }
+  });
+
+  // Proxy for Smartsheet API (Authorized Sync)
+  app.get("/api/smartsheet-api-proxy", async (req, res) => {
+    const { sheetId, token } = req.query;
+    if (!sheetId || typeof sheetId !== 'string' || !token || typeof token !== 'string') {
+      return res.status(400).json({ error: "Missing Sheet ID or Authorization Token" });
+    }
+
+    try {
+      console.log(`Smartsheet API: Fetching Sheet ${sheetId}`);
+      const response = await fetch(`https://api.smartsheet.com/2.0/sheets/${sheetId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Smartsheet API returned HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      res.json(data);
+    } catch (error: any) {
+      console.error("Smartsheet API Error:", error);
+      res.status(500).json({ error: "Failed to fetch Smartsheet data", details: error.message });
     }
   });
 
