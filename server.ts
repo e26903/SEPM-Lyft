@@ -12,95 +12,77 @@ async function startServer() {
   // Increase payload limit for PDF binary data
   app.use(bodyParser.json({ limit: '50mb' }));
 
-  // GLOBAL LOGGER - SEE EVERY REQUEST TO DEBUG 404s
+  // GLOBAL LOGGER
   app.use((req, res, next) => {
-    console.log(`[REQ] ${new Date().toISOString()} | ${req.method} ${req.url} | UA: ${req.headers['user-agent']}`);
+    if (req.url.startsWith('/api/')) {
+      console.log(`[API REQ] ${new Date().toISOString()} | ${req.method} ${req.url}`);
+    }
     next();
   });
 
-  // API ROUTES FIRST - NO ROUTER PREFIXING FOR MAX RELIABILITY
-  app.get("/api/health", (req, res) => {
-    console.log(`[API MATCH] Health Check`);
+  // Dedicated API Router with strict mounting
+  const api = express.Router();
+
+  api.get("/health", (req, res) => {
     res.json({ 
       status: "ok", 
       time: new Date().toISOString(), 
-      env: process.env.NODE_ENV || 'production',
-      platform: 'express',
-      v: '4.0'
+      v: '5.0', 
+      env: process.env.NODE_ENV || 'production' 
     });
   });
 
-  // Dual-method Smartsheet Proxy for maximum compatibility
-  app.all("/api/smartsheet-api-proxy", async (req, res) => {
-    console.log(`[API MATCH] Smartsheet Sync (${req.method})`);
-    
-    // Support both GET (query) and POST (body)
+  api.all("/smartsheet-api-proxy", async (req, res) => {
     const sheetId = req.method === 'POST' ? req.body.sheetId : req.query.sheetId;
     const token = req.method === 'POST' ? req.body.token : req.query.token;
 
     if (!sheetId || !token) {
-      console.warn("[API FAIL] Missing Auth/ID in Sync", { sheetId: !!sheetId, token: !!token });
-      return res.status(400).json({ error: "Missing Sheet ID or Authorization Token" });
+      return res.status(400).json({ error: "Missing Auth/ID" });
     }
 
     try {
       const response = await fetch(`https://api.smartsheet.com/2.0/sheets/${sheetId}`, {
         headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
       });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error("[API FAIL] Smartsheet Response Error", response.status, errText);
-        throw new Error(`Smartsheet API returned ${response.status}`);
-      }
-
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       res.json(data);
     } catch (error: any) {
-      console.error("[API FAIL] Smartsheet Sync Exception", error.message);
-      res.status(500).json({ error: "Smartsheet API failed", details: error.message });
+      res.status(500).json({ error: "Sync failed", details: error.message });
     }
   });
 
-  app.post("/api/upload-to-dropbox", async (req, res) => {
-    console.log("[API MATCH] Dropbox Upload");
+  api.post("/upload-to-dropbox", async (req, res) => {
     const { pdfBase64, fileName, accessToken } = req.body;
-    if (!pdfBase64 || !fileName) return res.status(400).json({ error: "Missing file data" });
-    const token = accessToken || process.env.VITE_DROPBOX_ACCESS_TOKEN || process.env.DROPBOX_ACCESS_TOKEN;
-    if (!token) return res.status(401).json({ error: "Dropbox Access Token not configured" });
+    if (!pdfBase64 || !fileName) return res.status(400).json({ error: "Missing data" });
+    const token = accessToken || process.env.DROPBOX_ACCESS_TOKEN;
+    if (!token) return res.status(401).json({ error: "No token" });
 
     try {
       const dbx = new Dropbox({ accessToken: token });
       const buffer = Buffer.from(pdfBase64, 'base64');
-      const response = await dbx.filesUpload({
-        path: `/${fileName}`,
-        contents: buffer,
-        mode: { '.tag': 'overwrite' },
-        autorename: true
-      });
-      res.json({ success: true, link: response.result.path_display });
+      await dbx.filesUpload({ path: `/${fileName}`, contents: buffer, mode: { '.tag': 'overwrite' } });
+      res.json({ success: true });
     } catch (error: any) {
-      console.error("[API FAIL] Dropbox Error:", error);
-      res.status(500).json({ error: "Dropbox upload failed", details: error?.error?.error_summary || error.message });
+      res.status(500).json({ error: "Upload failed", details: error.message });
     }
   });
 
-  app.get("/api/proxy-site-data", async (req, res) => {
-    console.log(`[API MATCH] CSV Proxy: ${req.query.url}`);
+  api.get("/proxy-site-data", async (req, res) => {
     const { url } = req.query;
     if (!url || typeof url !== 'string') return res.status(400).json({ error: "Missing URL" });
     try {
       const response = await fetch(url);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.text();
-      if (data.includes('<html')) return res.status(422).json({ error: "Invalid Source", details: "HTML received instead of CSV." });
       res.setHeader('Content-Type', 'text/csv');
       res.send(data);
     } catch (error: any) {
-      console.error("[API FAIL] Proxy Fetch Error:", error);
-      res.status(500).json({ error: "Fetch failed", details: error.message });
+      res.status(500).json({ error: "CSV failed", details: error.message });
     }
   });
+
+  // CRITICAL: Mount API router before ANY static or fallback middleware
+  app.use("/api", api);
 
   const publicPath = path.join(process.cwd(), 'public');
 
