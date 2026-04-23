@@ -24,6 +24,7 @@ import {
   Upload,
   Link2,
   History,
+  RefreshCw,
   ShieldCheck,
   UserPlus,
   Lock
@@ -49,7 +50,8 @@ import {
   saveEmailRecipients,
   getAuthorizedUsers,
   addAuthorizedUser,
-  removeAuthorizedUser
+  removeAuthorizedUser,
+  syncSitesFromRemote
 } from './lib/storage';
 import { 
   auth, 
@@ -942,8 +944,29 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
 
   const handleSaveUrl = async () => {
     await saveSmartsheetUrl(url);
-    setImportStatus('URL saved successfully.');
-    setTimeout(() => setImportStatus(null), 2000);
+    setImportStatus('Linking Source...');
+    const result = await syncSitesFromRemote();
+    if (result.success) {
+      setImportStatus(`Linked! Synchronized ${result.count} locations.`);
+      const meta = await getSiteMetadata();
+      setMetadata(meta);
+    } else {
+      setImportStatus(`Linked! (Sync Pending: ${result.error})`);
+    }
+    setTimeout(() => setImportStatus(null), 3000);
+  };
+
+  const handleManualSync = async () => {
+    setImportStatus('Synchronizing...');
+    const result = await syncSitesFromRemote();
+    if (result.success) {
+      setImportStatus(`Success! Updated ${result.count} locations.`);
+      const meta = await getSiteMetadata();
+      setMetadata(meta);
+    } else {
+      setImportStatus(`Sync Failed: ${result.error}`);
+    }
+    setTimeout(() => setImportStatus(null), 3000);
   };
 
   const handleSaveDestUrl = async () => {
@@ -1079,14 +1102,23 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
           )}
 
           {url ? (
-            <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-center gap-4">
-              <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-400">
-                <Link2 size={20} />
+            <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-center justify-between group">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-400">
+                  <Link2 size={20} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Remote Sync Active</p>
+                  <p className="text-sm font-bold text-white truncate max-w-[280px] md:max-w-[400px]">{url}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Remote Sync Active</p>
-                <p className="text-sm font-bold text-white truncate max-w-[400px]">{url}</p>
-              </div>
+              <button 
+                onClick={handleManualSync}
+                title="Pull Updates Now"
+                className="p-3 bg-blue-500/20 text-blue-400 rounded-xl hover:bg-blue-500 hover:text-white transition-all shadow-lg"
+              >
+                <RefreshCw size={18} className={importStatus === 'Synchronizing...' ? 'animate-spin' : ''} />
+              </button>
             </div>
           ) : (
             <div className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-center gap-4 border-dashed">

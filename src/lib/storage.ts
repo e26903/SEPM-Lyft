@@ -1,4 +1,5 @@
 import localforage from 'localforage';
+import Papa from 'papaparse';
 import { InspectionData } from '../types';
 import { Site } from '../data/sites';
 import { db, auth } from './firebase';
@@ -102,7 +103,8 @@ export async function getAllInspections(): Promise<InspectionData[]> {
     const inspections: InspectionData[] = [];
     
     querySnapshot.forEach((doc) => {
-      const item = doc.data().data as InspectionData;
+      const docData = doc.data() as any;
+      const item = docData.data as InspectionData;
       inspections.push(item);
       inspectionStore.setItem(item.id, item); // Sync to local
     });
@@ -239,4 +241,59 @@ export async function addAuthorizedUser(email: string) {
 
 export async function removeAuthorizedUser(email: string) {
   await deleteDoc(doc(db, 'authorized_users', email));
+}
+
+// REMOTE SYNC (BETA)
+export async function syncSitesFromRemote(): Promise<{ success: boolean; count: number; error?: string }> {
+  const url = await getSmartsheetUrl();
+  if (!url) return { success: false, count: 0, error: "No remote URL configured." };
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+    
+    const csvData = await response.text();
+    
+    return new Promise((resolve) => {
+      Papa.parse(csvData, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          const mapped: Site[] = results.data.map((row: any) => {
+            // Fuzzy match headers
+            const getVal = (keys: string[]) => {
+              const key = Object.keys(row).find(k => keys.includes(k.trim()));
+              return key ? row[key] : '';
+            };
+
+            return {
+              storeNo: getVal(['Location ID', 'Store #', 'Site ID', 'Store Number', 'Site Number', 'ID', 'Location', 'Store No']) || '',
+              city: getVal(['City', 'Town', 'Location City']) || '',
+              state: getVal(['State', 'Province', 'ST']) || '',
+              streetAddress1: getVal(['Address', 'Street', 'Street Address', 'Address 1', 'Full Address', 'Location Address']) || '',
+              zipcode: getVal(['Zip', 'Zipcode', 'Postal Code', 'Zip Code']) || ''
+            };
+          }).filter(s => s.storeNo);
+
+          if (mapped.length > 0) {
+            const metadata = {
+              fileName: 'Remote Source',
+              count: mapped.length,
+              date: new Date().toISOString()
+            };
+            await saveSites(mapped, metadata);
+            resolve({ success: true, count: mapped.length });
+          } else {
+            resolve({ success: false, count: 0, error: "No valid sites found in source." });
+          }
+        },
+        error: (err) => {
+          resolve({ success: false, count: 0, error: err.message });
+        }
+      });
+    });
+  } catch (err: any) {
+    console.error("Remote site sync failed:", err);
+    return { success: false, count: 0, error: err.message };
+  }
 }

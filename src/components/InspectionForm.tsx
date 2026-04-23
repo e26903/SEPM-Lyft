@@ -547,10 +547,10 @@ function GeneralInfoStep({ register, setValue, watch, disabled, errors }: any) {
     if (!storeSearch || disabled) return [];
     const search = storeSearch.toLowerCase();
     return allSites.filter(s => 
-      s.storeNo.toLowerCase().includes(search) ||
-      s.city.toLowerCase().includes(search) ||
-      s.streetAddress1.toLowerCase().includes(search) ||
-      (s as any).name?.toLowerCase().includes(search)
+      String(s.storeNo || '').toLowerCase().includes(search) ||
+      String(s.city || '').toLowerCase().includes(search) ||
+      String(s.streetAddress1 || '').toLowerCase().includes(search) ||
+      String((s as any).name || '').toLowerCase().includes(search)
     ).slice(0, 50); 
   }, [storeSearch, allSites, disabled]);
 
