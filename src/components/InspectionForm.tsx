@@ -22,7 +22,7 @@ import {
   Trash2,
   Plus
 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, compressImage } from '../lib/utils';
 import { InspectionData, Condition } from '../types';
 import { saveInspection, getDestinationUrl, getDropboxToken } from '../lib/storage';
 import { generateInspectionPDF } from '../lib/pdf';
@@ -305,7 +305,7 @@ export function InspectionForm({ inspection, setInspection, onBack, onComplete }
       case 'wetwell': return <WetWellStep register={register} setValue={setValue} getValues={getValues} values={formValues} disabled={isReadOnly} errors={errors} />;
       case 'controls': return <ControlsStep register={register} setValue={setValue} getValues={getValues} values={formValues} disabled={isReadOnly} errors={errors} />;
       case 'service': return <ServiceStep register={register} setValue={setValue} getValues={getValues} values={formValues} disabled={isReadOnly} errors={errors} />;
-      case 'review': return <ReviewStep values={formValues} register={register} disabled={isReadOnly} errors={errors} />;
+      case 'review': return <ReviewStep values={formValues} register={register} setValue={setValue} getValues={getValues} disabled={isReadOnly} errors={errors} />;
       default: return null;
     }
   };
@@ -469,7 +469,15 @@ function MultiImageUpload({ label, images, onAdd, onRemove, disabled }: { label:
       });
       reader.readAsDataURL(file);
       const img = await promise;
-      onAdd(img);
+      
+      // Compress image before adding
+      try {
+        const compressed = await compressImage(img);
+        onAdd(compressed);
+      } catch (err) {
+        console.error("Compression failed, using original:", err);
+        onAdd(img);
+      }
     }
     // Clear input
     e.target.value = '';
@@ -486,7 +494,7 @@ function MultiImageUpload({ label, images, onAdd, onRemove, disabled }: { label:
               <button 
                 type="button"
                 onClick={() => onRemove(i)}
-                className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-600 active:scale-90"
+                className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full transition-opacity flex items-center justify-center hover:bg-red-600 active:scale-90 shadow-lg z-10"
               >
                 <Trash2 size={12} />
               </button>
@@ -928,7 +936,19 @@ function ServiceStep({ register, setValue, getValues, values, disabled, errors }
   );
 }
 
-function ReviewStep({ values, register, disabled, errors }: any) {
+function ReviewStep({ values, register, setValue, getValues, disabled, errors }: any) {
+  // Collect all photos from all sections for final review/deletion
+  const sectionsWithImages = [
+    { id: 'pump1Evaluation.images', label: 'Pump 1' },
+    { id: 'pump2Evaluation.images', label: 'Pump 2' },
+    { id: 'visualAlarmTest.images', label: 'Visual Alarm' },
+    { id: 'audibleAlarmTest.images', label: 'Audible Alarm' },
+    { id: 'wetWell.images', label: 'Station Structure' },
+    { id: 'controlBox.images', label: 'Control Box' },
+    { id: 'remoteAlarm.images', label: 'Remote Alarm' },
+    { id: 'overallSiteCondition.images', label: 'Overall Site' }
+  ];
+
   return (
     <div className="space-y-8 pb-32">
       <div className="text-center py-10">
@@ -944,6 +964,7 @@ function ReviewStep({ values, register, disabled, errors }: any) {
       </div>
 
       <div className="bg-slate-50 border border-slate-100 rounded-[3rem] p-10 space-y-8 shadow-sm">
+        {/* ... existing fields ... */}
         <div className="flex justify-between items-center border-b border-slate-200 pb-6">
           <span className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">Work Order</span>
           <span className="font-black text-sepm-cyan text-xl tracking-tighter">#{values.workOrderNo || '---'}</span>
@@ -968,6 +989,52 @@ function ReviewStep({ values, register, disabled, errors }: any) {
             "text-[10px] px-4 py-1.5 rounded-full font-black uppercase tracking-widest",
             values.alarmStatus === 'NORMAL' ? "bg-lyft-lime/10 text-lyft-lime" : "bg-red-500/10 text-red-500"
           )}>{values.alarmStatus}</span>
+        </div>
+      </div>
+
+      {/* Photo Summary & Deletion */}
+      <div className="space-y-6">
+        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] pl-1">Media Manifest Review</h3>
+        <div className="space-y-4">
+          {sectionsWithImages.map(section => {
+            const imgs = (values as any)[section.id.split('.')[0]]?.[section.id.split('.')[1]] || [];
+            if (imgs.length === 0) return null;
+
+            return (
+              <div key={section.id} className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-[10px] font-black text-sepm-dark uppercase tracking-widest">{section.label}</span>
+                  <span className="text-[9px] font-bold text-slate-400 px-2 py-0.5 bg-slate-50 rounded-full">{imgs.length} Photos</span>
+                </div>
+                <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                  {imgs.map((img: string, i: number) => (
+                    <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-slate-50">
+                      <img src={img} alt="review" className="w-full h-full object-cover" />
+                      {!disabled && (
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            const pathArr = section.id.split('.');
+                            const current = (getValues() as any)[pathArr[0]][pathArr[1]];
+                            const filtered = current.filter((_: any, idx: number) => idx !== i);
+                            setValue(section.id as any, filtered, { shouldDirty: true });
+                          }}
+                          className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full shadow-md z-10"
+                        >
+                          <Trash2 size={10} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          {sectionsWithImages.every(s => !((values as any)[s.id.split('.')[0]]?.[s.id.split('.')[1]])?.length) && (
+            <div className="p-8 border-2 border-dashed border-slate-100 rounded-3xl text-center text-slate-300 font-bold uppercase tracking-widest text-[9px]">
+              No protocol media attached to this report
+            </div>
+          )}
         </div>
       </div>
       

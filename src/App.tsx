@@ -1212,7 +1212,7 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
           </div>
         </section>
 
-        <section className="space-y-6 opacity-80">
+        <section className="space-y-6">
           <div className="flex items-center gap-3 text-sepm-cyan">
             <Lock size={20} />
             <h3 className="font-black uppercase tracking-widest text-sm">Security & Access</h3>
@@ -1224,34 +1224,34 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
             <form onSubmit={handlePasswordChange} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-4">Current Password</label>
+                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-6">Current Password</label>
                   <input 
                     type="password"
                     required
                     placeholder="••••••••"
-                    className="w-full bg-white/5 border border-white/10 px-5 py-4 rounded-2xl text-sm outline-none focus:border-sepm-cyan transition-all"
+                    className="w-full bg-white/5 border border-white/10 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-4">New Password</label>
+                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-6">New Password</label>
                   <input 
                     type="password"
                     required
                     placeholder="••••••••"
-                    className="w-full bg-white/5 border border-white/10 px-5 py-4 rounded-2xl text-sm outline-none focus:border-sepm-cyan transition-all"
+                    className="w-full bg-white/5 border border-white/10 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-4">Confirm New</label>
+                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest ml-6">Confirm New</label>
                   <input 
                     type="password"
                     required
                     placeholder="••••••••"
-                    className="w-full bg-white/5 border border-white/10 px-5 py-4 rounded-2xl text-sm outline-none focus:border-sepm-cyan transition-all"
+                    className="w-full bg-white/5 border border-white/10 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                   />
@@ -1260,7 +1260,7 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
               <button 
                 type="submit"
                 disabled={isChangingPassword}
-                className="w-full py-5 bg-sepm-cyan text-slate-900 rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-white transition-all disabled:opacity-50"
+                className="w-full py-5 bg-sepm-cyan text-slate-900 rounded-3xl font-black uppercase tracking-widest text-sm hover:bg-white transition-all disabled:opacity-50 shadow-xl shadow-sepm-cyan/10"
               >
                 {isChangingPassword ? 'Authorizing Change...' : 'Commit New Password'}
               </button>
