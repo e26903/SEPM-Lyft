@@ -1205,21 +1205,22 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
 
           {url ? (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 group">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 overflow-hidden">
                 <div className="flex-shrink-0 w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 shadow-sm">
                   <Link2 size={20} />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Remote Sync Active</p>
-                  <p className="text-sm font-bold text-slate-900 truncate max-w-[200px] xs:max-w-[280px] md:max-w-none">{url}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest leading-none mb-1">Remote Sync Active</p>
+                  <p className="text-sm font-bold text-slate-900 break-all leading-tight">{url}</p>
                 </div>
               </div>
               <button 
                 onClick={handleManualSync}
                 title="Pull Updates Now"
-                className="w-full md:w-auto p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 flex justify-center items-center"
+                className="w-full md:w-auto p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 flex justify-center items-center flex-shrink-0"
               >
                 <RefreshCw size={18} className={importStatus === 'Synchronizing...' ? 'animate-spin' : ''} />
+                <span className="md:hidden ml-2 font-black uppercase text-[10px] tracking-widest">Manual Sync</span>
               </button>
             </div>
           ) : (
@@ -1495,25 +1496,26 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
               <div className="pt-6 space-y-3">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Active Authorization Allowlist</label>
                 <div className="grid grid-cols-1 gap-2">
-                  <div className="flex flex-row items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 min-w-0">
+                  <div className="flex flex-row items-center justify-between p-4 bg-white rounded-xl border-2 border-sepm-cyan min-w-0">
                     <div className="flex items-center gap-3 overflow-hidden">
                       <div className="flex-shrink-0 w-2 h-2 bg-sepm-cyan rounded-full pulse" />
-                      <span className="text-sm font-bold text-slate-900 truncate">crcjehaas@gmail.com</span>
+                      <span className="text-sm font-black text-slate-900 truncate">crcjehaas@gmail.com</span>
                     </div>
-                    <span className="flex-shrink-0 text-[8px] font-black uppercase tracking-widest text-sepm-cyan bg-sepm-cyan/10 px-2 py-1 rounded ml-2">Admin</span>
+                    <span className="flex-shrink-0 text-[8px] font-black uppercase tracking-widest text-sepm-cyan bg-sepm-cyan/10 px-2 py-1 rounded ml-2">Master Admin</span>
                   </div>
                   {authUsers.filter(e => e !== 'crcjehaas@gmail.com').map(email => (
-                    <div key={email} className="flex flex-row items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 group transition-all hover:bg-white shadow-sm min-w-0">
-                      <div className="flex items-center gap-3 overflow-hidden min-w-0">
+                    <div key={email} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 group transition-all hover:bg-white shadow-sm gap-4">
+                      <div className="flex items-center gap-3 overflow-hidden min-w-0 w-full">
                         <div className="flex-shrink-0 w-2 h-2 bg-slate-300 rounded-full" />
-                        <span className="text-sm font-bold text-slate-700 truncate">{email}</span>
+                        <span className="text-sm font-bold text-slate-900 break-all leading-tight">{email}</span>
                       </div>
                       <button 
                         onClick={() => handleRemoveUser(email)}
-                        className="flex-shrink-0 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all ml-2"
+                        className="w-full sm:w-auto flex items-center justify-center gap-2 p-3 sm:p-2 bg-red-50 sm:bg-transparent text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-all"
                         title="Revoke Access"
                       >
                         <Trash2 size={16} />
+                        <span className="sm:hidden font-black text-[10px] uppercase tracking-widest">Revoke Access</span>
                       </button>
                     </div>
                   ))}

@@ -11,7 +11,12 @@ async function startServer() {
 
   // VERY TOP HEALTH CHECK
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", v: "7.4-top" });
+    res.json({ 
+      status: "ok", 
+      v: "7.5-stable",
+      env: process.env.NODE_ENV || 'production',
+      platform: 'cloudrun'
+    });
   });
 
   // INCREASE PAYLOAD LIMIT
@@ -86,15 +91,14 @@ async function startServer() {
   // MOUNT API ROUTER FIRST
   app.use("/api", apiRouter);
 
+  // Fallback for /api to avoid index.html bleed
+  app.use("/api", (req, res) => {
+    res.status(404).json({ error: "Not Found", path: req.url });
+  });
+
   // --- STATIC FILES NEXT ---
 
   const publicPath = path.join(process.cwd(), 'public');
-
-  // Final catch-all for any missed API requests to prevent index.html bleed
-  app.use('/api', (req, res) => {
-    console.error(`[API 404] No handler found for ${req.method} ${req.url}`);
-    res.status(404).json({ error: "API Endpoint Not Found", path: req.url });
-  });
 
   // Vite integration
   if (process.env.NODE_ENV !== "production") {
@@ -120,6 +124,11 @@ async function startServer() {
     app.use(express.static(publicPath));
 
     app.get('*', (req, res) => {
+      // API check to ensure we don't serve HTML for /api errors
+      if (req.path.startsWith('/api')) {
+        return res.status(404).json({ error: "API route not found" });
+      }
+
       // Remove query string for file check
       const cleanPath = req.path.split('?')[0];
       const distFilePath = path.join(distPath, cleanPath);
