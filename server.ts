@@ -17,20 +17,21 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // MULTIPLE HEALTH CHECK ENDPOINTS FOR DIAGNOSTICS
-  app.get("/api/health", (req, res) => {
-    console.log("[SERVER] /api/health hit");
-    res.json({ status: "ok", v: "7.9a", env: process.env.NODE_ENV });
-  });
-
-  app.get("/status", (req, res) => {
-    console.log("[SERVER] /status hit");
-    res.json({ status: "ok", v: "7.9b", mode: "direct" });
-  });
-
-  app.get("/healthz", (req, res) => {
-    console.log("[SERVER] /healthz hit");
-    res.json({ status: "ok", v: "7.9c" });
+  // --- CRITICAL: FAST PATH HEALTH CHECKS ---
+  // These must be at the absolute top to bypass any middleware or static fallbacks
+  app.get(['/api/health', '/status', '/healthz'], (req, res) => {
+    console.log(`[HEALTH-FAST] ${req.path} hit`);
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('X-Backend-Version', '8.1-stable');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    return res.status(200).send(JSON.stringify({ 
+      status: "ok", 
+      v: "8.1",
+      env: process.env.NODE_ENV || 'production',
+      time: new Date().toISOString()
+    }));
   });
 
   // INCREASE PAYLOAD LIMIT

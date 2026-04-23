@@ -916,12 +916,26 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
       getAuthorizedUsers().then(setAuthUsers);
     }
 
-    // Health Check with fallback and cache buster
+    // Diagnostic Health Check Attempt
     const timestamp = Date.now();
     const tryHealth = async (endpoint: string) => {
-      const response = await fetch(`${endpoint}?_=${timestamp}`);
-      if (!response.ok) throw new Error(`${endpoint}: HTTP ${response.status}`);
-      return response.json();
+      try {
+        const response = await fetch(`${endpoint}?_=${timestamp}`);
+        const contentType = response.headers.get("content-type") || "";
+        
+        if (!response.ok) {
+          throw new Error(`${endpoint}: HTTP ${response.status}`);
+        }
+        
+        // Safety check: if we got HTML back, the backend didn't handle it
+        if (contentType.includes("text/html")) {
+          throw new Error(`${endpoint}: Expected JSON, got HTML (Check Backend Routing)`);
+        }
+        
+        return await response.json();
+      } catch (err: any) {
+        throw err;
+      }
     };
 
     tryHealth('/api/health')
@@ -930,7 +944,10 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
       .then(setHealth)
       .catch((err) => {
         console.error("Health Check Failed:", err.message);
-        setHealth({ status: 'offline', env: `Error: ${err.message}. Node: ${import.meta.env.MODE}` });
+        setHealth({ 
+          status: 'offline', 
+          env: `${err.message.substring(0, 80)}${err.message.length > 80 ? '...' : ''}` 
+        });
       });
   }, [isAdmin]);
 
@@ -1560,7 +1577,10 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
           <div className="flex items-center justify-center gap-2">
              <div className={cn("w-1.5 h-1.5 rounded-full", health?.status === 'ok' ? 'bg-teal-500' : 'bg-red-500')} />
              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center px-4 break-words">
-               Backend State: {health ? `${health.status} (${health.env})` : 'Initializing...'}
+               Backend Status: {health ? `${health.status} ${health.v ? `(${health.v})` : ''}` : 'Initializing...'}
+               {health?.status === 'offline' && (
+                 <span className="block mt-1 text-red-400 font-mono text-[8px] lowercase opacity-75">{health.env}</span>
+               )}
              </p>
           </div>
         </div>
