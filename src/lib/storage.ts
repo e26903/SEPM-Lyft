@@ -267,12 +267,13 @@ export async function syncSitesFromRemote(): Promise<{ success: boolean; count: 
     const sheetId = url.split('/sheets/')[1]?.split('?')[0];
     if (sheetId) {
       try {
-        const finalUrl = '/api/smartsheet-api-proxy';
+        const finalUrl = `/api/smartsheet-api-proxy?t=${Date.now()}`;
         console.log("Sync: Calling API Proxy (POST)", finalUrl);
         const response = await fetch(finalUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sheetId, token })
+          body: JSON.stringify({ sheetId, token }),
+          cache: 'no-store'
         });
 
         if (!response.ok) {
@@ -319,10 +320,10 @@ export async function syncSitesFromRemote(): Promise<{ success: boolean; count: 
 
   // Fallback to CSV / Proxy fetch
   try {
-    // Call our server-side proxy to bypass CORS
-    const finalUrl = `/api/proxy-site-data?url=${encodeURIComponent(url)}`;
+    // Call our server-side proxy to bypass CORS with cache buster
+    const finalUrl = `/api/proxy-site-data?url=${encodeURIComponent(url)}&t=${Date.now()}`;
     console.log("Sync: Calling CSV Proxy", finalUrl);
-    const response = await fetch(finalUrl);
+    const response = await fetch(finalUrl, { cache: 'no-store' });
     if (!response.ok) {
       console.error("Sync: CSV Proxy Failed", response.status, response.statusText);
       const errorData = await response.json().catch(() => ({}));

@@ -912,8 +912,8 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
       getAuthorizedUsers().then(setAuthUsers);
     }
 
-    // Health Check
-    fetch('/api/health')
+    // Health Check with cache buster
+    fetch(`/api/health?_=${Date.now()}`)
       .then(r => r.json())
       .then(setHealth)
       .catch(() => setHealth({ status: 'offline', env: 'unknown' }));
@@ -1483,8 +1483,8 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
           </div>
           
           <div className="flex items-center justify-center gap-2">
-             <div className={cn("w-1.5 h-1.5 rounded-full", health?.status === 'ok' ? 'bg-teal-400' : 'bg-red-500')} />
-             <p className="text-[9px] font-black text-white/30 uppercase tracking-widest">
+             <div className={cn("w-1.5 h-1.5 rounded-full", health?.status === 'ok' ? 'bg-teal-500' : 'bg-red-500')} />
+             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                Backend State: {health ? `${health.status} (${health.env})` : 'Initializing...'}
              </p>
           </div>

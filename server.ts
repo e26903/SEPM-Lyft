@@ -11,48 +11,56 @@ async function startServer() {
 
   // Increase payload limit for PDF binary data
   app.use(bodyParser.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true }));
 
   // GLOBAL LOGGER
   app.use((req, res, next) => {
     if (req.url.startsWith('/api/')) {
-      console.log(`[API REQ] ${new Date().toISOString()} | ${req.method} ${req.url}`);
+      console.log(`[API] ${req.method} ${req.url}`);
     }
     next();
   });
 
-  // Dedicated API Router with strict mounting
-  const api = express.Router();
+  // Dedicated API Router
+  const apiRouter = express.Router();
 
-  api.get("/health", (req, res) => {
+  apiRouter.get("/health", (req, res) => {
     res.json({ 
       status: "ok", 
       time: new Date().toISOString(), 
-      v: '5.0', 
+      v: '7.0', 
       env: process.env.NODE_ENV || 'production' 
     });
   });
 
-  api.all("/smartsheet-api-proxy", async (req, res) => {
+  apiRouter.all("/smartsheet-api-proxy", async (req, res) => {
+    console.log(`[API] Smartsheet Proxy Match: ${req.method}`);
     const sheetId = req.method === 'POST' ? req.body.sheetId : req.query.sheetId;
     const token = req.method === 'POST' ? req.body.token : req.query.token;
 
     if (!sheetId || !token) {
-      return res.status(400).json({ error: "Missing Auth/ID" });
+      console.warn("[API] Missing Auth/ID", { sheetId: !!sheetId, token: !!token });
+      return res.status(400).json({ error: "Missing Sheet ID or Authorization Token" });
     }
 
     try {
       const response = await fetch(`https://api.smartsheet.com/2.0/sheets/${sheetId}`, {
         headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) {
+        const text = await response.text();
+        console.error("[API] Smartsheet Error", response.status, text);
+        throw new Error(`HTTP ${response.status}`);
+      }
       const data = await response.json();
       res.json(data);
     } catch (error: any) {
+      console.error("[API] Sync Error", error.message);
       res.status(500).json({ error: "Sync failed", details: error.message });
     }
   });
 
-  api.post("/upload-to-dropbox", async (req, res) => {
+  apiRouter.post("/upload-to-dropbox", async (req, res) => {
     const { pdfBase64, fileName, accessToken } = req.body;
     if (!pdfBase64 || !fileName) return res.status(400).json({ error: "Missing data" });
     const token = accessToken || process.env.DROPBOX_ACCESS_TOKEN;
@@ -68,7 +76,7 @@ async function startServer() {
     }
   });
 
-  api.get("/proxy-site-data", async (req, res) => {
+  apiRouter.get("/proxy-site-data", async (req, res) => {
     const { url } = req.query;
     if (!url || typeof url !== 'string') return res.status(400).json({ error: "Missing URL" });
     try {
@@ -81,8 +89,10 @@ async function startServer() {
     }
   });
 
-  // CRITICAL: Mount API router before ANY static or fallback middleware
-  app.use("/api", api);
+  // MOUNT API ROUTER FIRST
+  app.use("/api", apiRouter);
+
+  // --- STATIC FILES NEXT ---
 
   const publicPath = path.join(process.cwd(), 'public');
 
