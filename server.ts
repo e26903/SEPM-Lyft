@@ -1,5 +1,5 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
+console.log("[SERVER] Starting initial process...");
 import path from "path";
 import fs from "fs";
 import { Dropbox } from "dropbox";
@@ -9,6 +9,11 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // VERY TOP HEALTH CHECK
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", v: "7.4-top" });
+  });
+
   // INCREASE PAYLOAD LIMIT
   app.use(bodyParser.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true }));
@@ -17,21 +22,6 @@ async function startServer() {
   app.use((req, res, next) => {
     console.log(`[REQ] ${req.method} ${req.url}`);
     next();
-  });
-
-  // CRITICAL: Health Check at root levels to bypass any router issues
-  app.get("/health", (req, res) => {
-    res.json({ status: "ok", time: new Date().toISOString(), v: '7.2' });
-  });
-
-  app.get("/api/health", (req, res) => {
-    console.log("[HEALTH] Responding ok");
-    res.json({ 
-      status: "ok", 
-      time: new Date().toISOString(), 
-      v: '7.2', 
-      env: process.env.NODE_ENV || 'production' 
-    });
   });
 
   // Dedicated API Router
@@ -108,6 +98,7 @@ async function startServer() {
 
   // Vite integration
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
