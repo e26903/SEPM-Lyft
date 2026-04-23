@@ -13,12 +13,21 @@ async function startServer() {
   app.use(bodyParser.json({ limit: '50mb' }));
 
   // API ROUTES FIRST - NO ROUTER PREFIXING FOR MAX RELIABILITY
+  app.use((req, res, next) => {
+    if (req.url.startsWith('/api/')) {
+      console.log(`[API REQUEST] ${new Date().toISOString()} | ${req.method} ${req.url}`);
+    }
+    next();
+  });
+
   app.get("/api/health", (req, res) => {
+    console.log(`[API MATCH] Health Check`);
     res.json({ 
       status: "ok", 
       time: new Date().toISOString(), 
       env: process.env.NODE_ENV || 'development',
-      platform: 'express'
+      platform: 'express',
+      v: '3.0'
     });
   });
 
@@ -45,6 +54,7 @@ async function startServer() {
   });
 
   app.get("/api/proxy-site-data", async (req, res) => {
+    console.log(`[API MATCH] CSV Proxy: ${req.query.url}`);
     const { url } = req.query;
     if (!url || typeof url !== 'string') return res.status(400).json({ error: "Missing URL" });
     try {
@@ -60,6 +70,7 @@ async function startServer() {
   });
 
   app.get("/api/smartsheet-api-proxy", async (req, res) => {
+    console.log(`[API MATCH] Smartsheet API: ${req.query.sheetId}`);
     const { sheetId, token } = req.query;
     if (!sheetId || !token) return res.status(400).json({ error: "Missing ID/Token" });
     try {
@@ -129,6 +140,12 @@ async function startServer() {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
+
+  // Final catch-all for any missed API requests to prevent index.html bleed
+  app.use('/api', (req, res) => {
+    console.error(`[API 404] No handler found for ${req.method} ${req.url}`);
+    res.status(404).json({ error: "API Endpoint Not Found", path: req.url });
+  });
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running at http://localhost:${PORT}`);
