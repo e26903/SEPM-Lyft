@@ -96,6 +96,12 @@ async function startServer() {
 
   const publicPath = path.join(process.cwd(), 'public');
 
+  // Final catch-all for any missed API requests to prevent index.html bleed
+  app.use('/api', (req, res) => {
+    console.error(`[API 404] No handler found for ${req.method} ${req.url}`);
+    res.status(404).json({ error: "API Endpoint Not Found", path: req.url });
+  });
+
   // Vite integration
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -149,12 +155,6 @@ async function startServer() {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
-
-  // Final catch-all for any missed API requests to prevent index.html bleed
-  app.use('/api', (req, res) => {
-    console.error(`[API 404] No handler found for ${req.method} ${req.url}`);
-    res.status(404).json({ error: "API Endpoint Not Found", path: req.url });
-  });
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running at http://localhost:${PORT}`);

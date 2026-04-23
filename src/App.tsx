@@ -424,7 +424,7 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={onStart}
-              className="w-full py-5 bg-sepm-cyan text-white font-black rounded-full text-lg shadow-2xl shadow-sepm-cyan/30 transition-all uppercase tracking-[0.2em]"
+              className="w-full py-5 bg-sepm-cyan text-slate-900 font-black rounded-full text-lg shadow-2xl shadow-sepm-cyan/30 transition-all uppercase tracking-[0.2em]"
             >
               Enter Portal
             </motion.button>
@@ -438,7 +438,7 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setShowAuth(true)}
-                className="px-16 py-5 bg-sepm-cyan hover:bg-sepm-cyan/90 text-white font-black rounded-full text-xl shadow-2xl shadow-sepm-cyan/30 transition-all uppercase tracking-[0.2em]"
+                className="px-16 py-5 bg-sepm-cyan hover:bg-sepm-cyan/90 text-slate-900 font-black rounded-full text-xl shadow-2xl shadow-sepm-cyan/30 transition-all uppercase tracking-[0.2em]"
               >
                 Login
               </motion.button>
@@ -475,7 +475,7 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
                   <button 
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full py-5 bg-sepm-cyan text-white rounded-3xl font-black uppercase tracking-widest text-xs hover:brightness-110 shadow-lg shadow-sepm-cyan/20 disabled:opacity-50 transition-all mt-4"
+                    className="w-full py-5 bg-sepm-cyan text-slate-900 rounded-3xl font-black uppercase tracking-widest text-xs hover:brightness-110 shadow-lg shadow-sepm-cyan/20 disabled:opacity-50 transition-all mt-4"
                   >
                     {isSubmitting ? 'Verifying Authorization...' : 'Enter Portal'}
                   </button>
@@ -654,7 +654,7 @@ function DashboardScreen({ inspections, searchQuery, setSearchQuery, onNew, onEd
           </div>
           <button 
             onClick={onNew}
-            className="px-6 py-3 bg-sepm-cyan text-white rounded-xl md:rounded-2xl hover:brightness-110 transition-all shadow-lg shadow-sepm-cyan/20 active:scale-95 flex items-center gap-2 whitespace-nowrap"
+            className="px-6 py-3 bg-sepm-cyan text-slate-900 rounded-xl md:rounded-2xl hover:brightness-110 transition-all shadow-lg shadow-sepm-cyan/20 active:scale-95 flex items-center gap-2 whitespace-nowrap"
           >
             <Plus size={20} strokeWidth={3} /> <span className="font-black text-xs uppercase tracking-widest hidden xs:block">New Inspection</span>
           </button>
@@ -913,10 +913,20 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
     }
 
     // Health Check with cache buster
-    fetch(`/api/health?_=${Date.now()}`)
-      .then(r => r.json())
+    const timestamp = Date.now();
+    fetch(`/api/health?_=${timestamp}`)
+      .then(async r => {
+        if (!r.ok) {
+          const text = await r.text();
+          throw new Error(`HTTP ${r.status}: ${text.substring(0, 50)}`);
+        }
+        return r.json();
+      })
       .then(setHealth)
-      .catch(() => setHealth({ status: 'offline', env: 'unknown' }));
+      .catch((err) => {
+        console.error("Health Check Failed:", err.message);
+        setHealth({ status: 'offline', env: `Error: ${err.message}` });
+      });
   }, [isAdmin]);
 
   const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1091,10 +1101,10 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
       className="flex-1 flex flex-col p-6 md:p-10 overflow-auto"
     >
       <header className="flex items-center gap-4 md:gap-6 mb-8 md:mb-12">
-        <button onClick={onBack} className="p-2.5 md:p-3 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-colors">
-          <ArrowLeft className="w-5 h-5 md:w-6 md:h-6" />
+        <button onClick={onBack} className="p-2.5 md:p-3 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 transition-colors shadow-sm">
+          <ArrowLeft className="w-5 h-5 md:w-6 md:h-6 text-slate-600" />
         </button>
-        <h2 className="text-xl md:text-3xl font-black text-white uppercase italic tracking-tighter leading-none">System Configuration</h2>
+        <h2 className="text-xl md:text-3xl font-black text-slate-900 uppercase italic tracking-tighter leading-none">System Configuration</h2>
       </header>
 
       <div className="max-w-2xl space-y-12 pb-24">
@@ -1122,72 +1132,72 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
         {/* Persistent Status Banners */}
         <div className="space-y-3">
           {metadata ? (
-            <div className="p-4 bg-teal-400/10 border border-teal-400/20 rounded-2xl flex items-center justify-between group">
+            <div className="p-4 bg-teal-50 border border-teal-200 rounded-2xl flex items-center justify-between group">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-teal-400/20 rounded-xl flex items-center justify-center text-teal-400">
+                <div className="w-10 h-10 bg-teal-100 rounded-xl flex items-center justify-center text-teal-600 shadow-sm">
                   <FileSpreadsheet size={20} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black text-teal-400 uppercase tracking-widest">Active Manifest</p>
-                  <p className="text-sm font-bold text-white">{metadata.fileName}</p>
-                  <p className="text-[9px] text-white/40 font-mono uppercase">{metadata.count} Sites • Linked {format(new Date(metadata.date), 'PPp')}</p>
+                  <p className="text-[10px] font-black text-teal-600 uppercase tracking-widest">Active Manifest</p>
+                  <p className="text-sm font-bold text-slate-900">{metadata.fileName}</p>
+                  <p className="text-[9px] text-slate-500 font-mono uppercase">{metadata.count} Sites • Linked {format(new Date(metadata.date), 'PPp')}</p>
                 </div>
               </div>
-              <button onClick={handleClearData} className="p-2 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-red-500 rounded-lg transition-all">
+              <button onClick={handleClearData} className="p-2 opacity-0 group-hover:opacity-100 hover:bg-red-50 text-red-500 rounded-lg transition-all">
                 <Trash2 size={16} />
               </button>
             </div>
           ) : (
-            <div className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-center gap-4 border-dashed">
-              <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center text-white/20">
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-4 border-dashed">
+              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-300">
                 <FileSpreadsheet size={20} />
               </div>
               <div>
-                <p className="text-[10px] font-black text-white/20 uppercase tracking-widest">No Custom Manifest</p>
-                <p className="text-xs text-white/40">Using standard built-in site database</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No Custom Manifest</p>
+                <p className="text-xs text-slate-500 font-medium">Using standard built-in site database</p>
               </div>
             </div>
           )}
 
           {url ? (
-            <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-center justify-between group">
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex items-center justify-between group">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-400">
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 shadow-sm">
                   <Link2 size={20} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Remote Sync Active</p>
-                  <p className="text-sm font-bold text-white truncate max-w-[280px] md:max-w-[400px]">{url}</p>
+                  <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Remote Sync Active</p>
+                  <p className="text-sm font-bold text-slate-900 truncate max-w-[280px] md:max-w-[400px]">{url}</p>
                 </div>
               </div>
               <button 
                 onClick={handleManualSync}
                 title="Pull Updates Now"
-                className="p-3 bg-blue-500/20 text-blue-400 rounded-xl hover:bg-blue-500 hover:text-white transition-all shadow-lg"
+                className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20"
               >
                 <RefreshCw size={18} className={importStatus === 'Synchronizing...' ? 'animate-spin' : ''} />
               </button>
             </div>
           ) : (
-            <div className="p-4 bg-white/5 border border-white/5 rounded-2xl flex items-center gap-4 border-dashed">
-              <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center text-white/20">
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-4 border-dashed">
+              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-300">
                 <Link2 size={20} />
               </div>
               <div>
-                <p className="text-[10px] font-black text-white/20 uppercase tracking-widest">No Remote Source</p>
-                <p className="text-xs text-white/40">Manual Smart Sheet entry required for remote sync</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No Remote Source</p>
+                <p className="text-xs text-slate-500 font-medium">Manual Smart Sheet entry required for remote sync</p>
               </div>
             </div>
           )}
         </div>
 
         <section className="space-y-6">
-          <div className="flex items-center gap-3 text-teal-400">
+          <div className="flex items-center gap-3 text-teal-600">
             <Upload size={18} />
             <h3 className="font-black uppercase tracking-widest text-xs md:text-sm">Update Manifest</h3>
           </div>
-          <div className="bg-white/5 border border-white/10 rounded-[28px] md:rounded-[32px] p-6 md:p-8 space-y-4 shadow-xl">
-            <p className="text-[13px] md:text-sm text-white/60 leading-relaxed">
+          <div className="bg-white border border-slate-200 rounded-[28px] md:rounded-[32px] p-6 md:p-8 space-y-4 shadow-sm">
+            <p className="text-[13px] md:text-sm text-slate-600 leading-relaxed font-medium">
               Upload a new CSV to replace your active manifest. 
             </p>
             <div className="relative group">
@@ -1197,90 +1207,90 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
                 onChange={handleCsvUpload}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
               />
-              <div className="py-6 md:py-8 border-2 border-dashed border-white/10 group-hover:border-teal-400/50 rounded-2xl flex flex-col items-center justify-center gap-3 transition-colors">
-                <FileSpreadsheet className="text-white/10 group-hover:text-teal-400/40 transition-colors w-10 h-10 md:w-12 md:h-12" />
-                <span className="text-[11px] font-black uppercase tracking-widest text-white/30">Select New CSV</span>
+              <div className="py-6 md:py-8 border-2 border-dashed border-slate-200 group-hover:border-teal-400 group-hover:bg-teal-50/50 rounded-2xl flex flex-col items-center justify-center gap-3 transition-colors">
+                <FileSpreadsheet className="text-slate-200 group-hover:text-teal-400 transition-colors w-10 h-10 md:w-12 md:h-12" />
+                <span className="text-[11px] font-black uppercase tracking-widest text-slate-400">Select New CSV</span>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="space-y-6 opacity-80">
+        <section className="space-y-6 opacity-90">
           <div className="flex items-center gap-3 text-sepm-cyan">
             <Database size={20} />
-            <h3 className="font-black uppercase tracking-widest text-sm">Automated Cloud Sync</h3>
+            <h3 className="font-black uppercase tracking-widest text-sm text-slate-900">Automated Cloud Sync</h3>
           </div>
-          <div className="bg-white/5 border border-white/10 rounded-[32px] p-8 space-y-6">
-            <p className="text-sm text-white/60 leading-relaxed">
+          <div className="bg-white border border-slate-200 rounded-[32px] p-8 space-y-6 shadow-sm">
+            <p className="text-sm text-slate-600 leading-relaxed font-medium">
               Enable "Zero-Involvement" uploads. Providing an <strong className="text-sepm-cyan">Access Token</strong> allows the system to push reports directly to your folder without manual interaction.
             </p>
             <div className="space-y-4">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Dropbox Access Token</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dropbox Access Token</label>
                 <div className="flex gap-2">
                   <input 
                     type="password"
                     placeholder={import.meta.env.VITE_DROPBOX_ACCESS_TOKEN ? "Active (from environment)" : "sl.u.A1b2c3..."}
-                    className="flex-1 bg-white/5 border border-white/10 px-5 py-4 rounded-2xl text-sm outline-none focus:border-sepm-cyan transition-all font-mono"
+                    className="flex-1 bg-slate-50 border border-slate-200 px-5 py-4 rounded-2xl text-sm outline-none focus:border-sepm-cyan transition-all font-mono text-slate-900"
                     value={dbxToken}
                     onChange={(e) => setDbxToken(e.target.value)}
                   />
                   <button 
                     onClick={handleSaveDbxToken}
-                    className="px-6 bg-sepm-cyan text-slate-900 font-black uppercase text-xs rounded-2xl hover:bg-white transition-colors"
+                    className="px-6 bg-sepm-cyan text-slate-900 font-black uppercase text-xs rounded-2xl hover:bg-sepm-cyan/90 transition-colors shadow-sm"
                   >
                     Authorize
                   </button>
                 </div>
                 {import.meta.env.VITE_DROPBOX_ACCESS_TOKEN && !dbxToken && (
-                  <p className="text-[9px] text-teal-400/60 mt-1 italic">Using environment-provided access token.</p>
+                  <p className="text-[9px] text-teal-600 mt-1 italic font-bold">Using environment-provided access token.</p>
                 )}
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Destination Path</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Destination Path</label>
                 <div className="flex gap-2">
                   <input 
                     type="text"
                     placeholder="Reporting/Inspections"
-                    className="flex-1 bg-white/5 border border-white/10 px-5 py-4 rounded-2xl text-sm outline-none focus:border-sepm-cyan transition-all font-mono"
+                    className="flex-1 bg-slate-50 border border-slate-200 px-5 py-4 rounded-2xl text-sm outline-none focus:border-sepm-cyan transition-all font-mono text-slate-900"
                     value={destUrl}
                     onChange={(e) => setDestUrl(e.target.value)}
                   />
                   <button 
                     onClick={handleSaveDestUrl}
-                    className="px-6 bg-sepm-cyan text-slate-900 font-black uppercase text-xs rounded-2xl hover:bg-white transition-colors"
+                    className="px-6 bg-sepm-cyan text-slate-900 font-black uppercase text-xs rounded-2xl hover:bg-sepm-cyan/90 transition-colors shadow-sm"
                   >
                     Save
                   </button>
                 </div>
-                <p className="text-[9px] text-white/20 italic">If using an automated token, enter the folder path instead of a URL.</p>
+                <p className="text-[9px] text-slate-400 italic font-medium">If using an automated token, enter the folder path instead of a URL.</p>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="space-y-6 opacity-80">
+        <section className="space-y-6 opacity-90">
           <div className="flex items-center gap-3 text-sepm-cyan">
             <Mail size={20} />
-            <h3 className="font-black uppercase tracking-widest text-sm">Communication Protocol</h3>
+            <h3 className="font-black uppercase tracking-widest text-sm text-slate-900">Communication Protocol</h3>
           </div>
-          <div className="bg-white/5 border border-white/10 rounded-[32px] p-8 space-y-6">
-            <p className="text-sm text-white/60 leading-relaxed">
+          <div className="bg-white border border-slate-200 rounded-[32px] p-8 space-y-6 shadow-sm">
+            <p className="text-sm text-slate-600 leading-relaxed font-medium">
               Define the default "Push Email" recipients. Use commas for multiple addresses.
             </p>
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Stakeholder Recipients</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Stakeholder Recipients</label>
               <div className="flex gap-2">
                 <input 
                   type="text"
                   placeholder="Ruth.Haas@sepmfix.com, tech@sepm.com"
-                  className="flex-1 bg-white/5 border border-white/10 px-5 py-4 rounded-2xl text-sm outline-none focus:border-sepm-cyan transition-all font-mono"
+                  className="flex-1 bg-slate-50 border border-slate-200 px-5 py-4 rounded-2xl text-sm outline-none focus:border-sepm-cyan transition-all font-mono text-slate-900"
                   value={recipients}
                   onChange={(e) => setRecipients(e.target.value)}
                 />
                 <button 
                   onClick={handleSaveRecipients}
-                  className="px-6 bg-sepm-cyan text-slate-900 font-black uppercase text-xs rounded-2xl hover:bg-white transition-colors"
+                  className="px-6 bg-sepm-cyan text-slate-900 font-black uppercase text-xs rounded-2xl hover:bg-sepm-cyan/90 transition-colors shadow-sm"
                 >
                   Apply
                 </button>
@@ -1292,10 +1302,10 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
         <section className="space-y-6">
           <div className="flex items-center gap-3 text-sepm-cyan">
             <Lock size={20} />
-            <h3 className="font-black uppercase tracking-widest text-sm">Security & Access</h3>
+            <h3 className="font-black uppercase tracking-widest text-sm text-slate-900">Security & Access</h3>
           </div>
-          <div className="bg-white/5 border border-white/10 rounded-[32px] p-8 space-y-6">
-            <p className="text-sm text-white/60 leading-relaxed">
+          <div className="bg-white border border-slate-200 rounded-[32px] p-8 space-y-6 shadow-sm">
+            <p className="text-sm text-slate-600 leading-relaxed font-medium">
               Update your account credentials. You will be required to enter your current password to authorize this sensitive change.
             </p>
             <form onSubmit={handlePasswordChange} className="space-y-4">
@@ -1306,7 +1316,7 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
                     type="password"
                     required
                     placeholder="••••••••"
-                    className="w-full bg-slate-50 border border-slate-200 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all"
+                    className="w-full bg-slate-50 border border-slate-200 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all text-slate-900"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                   />
@@ -1317,7 +1327,7 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
                     type="password"
                     required
                     placeholder="••••••••"
-                    className="w-full bg-slate-50 border border-slate-200 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all"
+                    className="w-full bg-slate-50 border border-slate-200 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all text-slate-900"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                   />
@@ -1328,7 +1338,7 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
                     type="password"
                     required
                     placeholder="••••••••"
-                    className="w-full bg-slate-50 border border-slate-200 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all"
+                    className="w-full bg-slate-50 border border-slate-200 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all text-slate-900"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                   />
@@ -1337,7 +1347,7 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
               <button 
                 type="submit"
                 disabled={isChangingPassword}
-                className="w-full py-5 bg-sepm-cyan text-slate-900 rounded-3xl font-black uppercase tracking-widest text-sm hover:bg-white transition-all disabled:opacity-50 shadow-xl shadow-sepm-cyan/10"
+                className="w-full py-5 bg-sepm-cyan text-slate-900 rounded-3xl font-black uppercase tracking-widest text-sm hover:bg-sepm-cyan/90 transition-all disabled:opacity-50 shadow-md"
               >
                 {isChangingPassword ? 'Authorizing Change...' : 'Commit New Password'}
               </button>
@@ -1345,29 +1355,29 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
           </div>
         </section>
 
-        <section className="space-y-6 opacity-80">
-          <div className="flex items-center gap-3 text-teal-400">
+        <section className="space-y-6 opacity-90">
+          <div className="flex items-center gap-3 text-teal-600">
             <Link2 size={20} />
             <h3 className="font-black uppercase tracking-widest text-sm">Remote Sourcing (BETA)</h3>
           </div>
-          <div className="bg-white/5 border border-white/10 rounded-[32px] p-8 space-y-6">
-            <p className="text-sm text-white/60 leading-relaxed">
+          <div className="bg-white border border-slate-200 rounded-[32px] p-8 space-y-6 shadow-sm">
+            <p className="text-sm text-slate-600 leading-relaxed font-medium">
               Connect directly to a live Smart Sheet or API endpoint for real-time Location ID fetching.
             </p>
             <div className="space-y-6">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest leading-none block ml-1">Source URL (Edit or CSV Link)</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none block ml-1">Source URL (Edit or CSV Link)</label>
                 <div className="flex gap-2">
                   <input 
                     type="url"
                     placeholder="https://app.smartsheet.com/sheets/..."
-                    className="flex-1 bg-white/5 border border-white/10 px-5 py-4 rounded-2xl text-sm outline-none focus:border-teal-400 transition-all font-mono"
+                    className="flex-1 bg-slate-50 border border-slate-200 px-5 py-4 rounded-2xl text-sm outline-none focus:border-teal-500 transition-all font-mono text-slate-900"
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                   />
                   <button 
                     onClick={handleSaveUrl}
-                    className="px-6 bg-teal-400 text-slate-900 font-black uppercase text-xs rounded-2xl hover:bg-teal-300 shadow-lg shadow-teal-400/10"
+                    className="px-6 bg-teal-500 text-white font-black uppercase text-xs rounded-2xl hover:bg-teal-600 shadow-md shadow-teal-500/10"
                   >
                     Link
                   </button>
@@ -1376,17 +1386,17 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
 
               <div className="space-y-2">
                 <div className="flex justify-between items-center ml-1">
-                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Smartsheet Access Token</label>
-                  <a href="https://app.smartsheet.com/b/home" target="_blank" rel="noopener noreferrer" className="text-[9px] text-teal-400 font-bold uppercase hover:underline">Where do I find this?</a>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Smartsheet Access Token</label>
+                  <a href="https://app.smartsheet.com/b/home" target="_blank" rel="noopener noreferrer" className="text-[9px] text-teal-600 font-bold uppercase hover:underline">Where do I find this?</a>
                 </div>
                 <input 
                   type="password"
                   placeholder="Paste your API Token here..."
-                  className="w-full bg-white/5 border border-white/10 px-5 py-4 rounded-2xl text-sm outline-none focus:border-teal-400 transition-all font-mono"
+                  className="w-full bg-slate-50 border border-slate-200 px-5 py-4 rounded-2xl text-sm outline-none focus:border-teal-500 transition-all font-mono text-slate-900"
                   value={smartsheetToken}
                   onChange={(e) => setSmartsheetToken(e.target.value)}
                 />
-                <p className="text-[9px] text-white/30 px-2 leading-relaxed uppercase font-bold italic mt-1">
+                <p className="text-[9px] text-slate-400 px-2 leading-relaxed uppercase font-bold italic mt-1">
                   Required if you cannot use the "Publish as CSV" feature. Token is found in Personal Settings &gt; API Access.
                 </p>
               </div>
@@ -1398,26 +1408,26 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
           <section className="space-y-6">
             <div className="flex items-center gap-3 text-sepm-cyan">
               <ShieldCheck size={20} />
-              <h3 className="font-black uppercase tracking-widest text-sm">Personnel Authorization</h3>
+              <h3 className="font-black uppercase tracking-widest text-sm text-slate-900">Personnel Authorization</h3>
             </div>
-            <div className="bg-white/5 border border-white/10 rounded-[32px] p-8 space-y-6">
-              <p className="text-sm text-white/60 leading-relaxed">
+            <div className="bg-white border border-slate-200 rounded-[32px] p-8 space-y-6 shadow-sm">
+              <p className="text-sm text-slate-600 leading-relaxed font-medium">
                  Manage who can access the operational portal. Authorized users must sign in with their Google account matching the email below.
               </p>
               
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Authorize New Stakeholder</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Authorize New Stakeholder</label>
                 <div className="flex gap-2">
                   <input 
                     type="email"
                     placeholder="teammate@sepmfix.com"
-                    className="flex-1 bg-white/5 border border-white/10 px-5 py-4 rounded-2xl text-sm outline-none focus:border-sepm-cyan transition-all"
+                    className="flex-1 bg-slate-50 border border-slate-200 px-5 py-4 rounded-2xl text-sm outline-none focus:border-sepm-cyan transition-all text-slate-900"
                     value={newAuthEmail}
                     onChange={(e) => setNewAuthEmail(e.target.value)}
                   />
                   <button 
                     onClick={handleAddUser}
-                    className="px-6 bg-sepm-cyan text-slate-900 font-black uppercase text-xs rounded-2xl hover:bg-white transition-colors flex items-center justify-center gap-2"
+                    className="px-6 bg-sepm-cyan text-slate-900 font-black uppercase text-xs rounded-2xl hover:bg-sepm-cyan/90 transition-colors flex items-center justify-center gap-2 shadow-sm"
                   >
                     <UserPlus size={14} /> Add
                   </button>
@@ -1425,28 +1435,28 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
               </div>
 
               <div className="pt-6 space-y-3">
-                <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block mb-2">Active Authorization Allowlist</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Active Authorization Allowlist</label>
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
+                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
                     <div className="flex items-center gap-3">
                       <div className="w-2 h-2 bg-sepm-cyan rounded-full pulse" />
-                      <span className="text-sm font-bold text-white">crcjehaas@gmail.com</span>
+                      <span className="text-sm font-bold text-slate-900">crcjehaas@gmail.com</span>
                     </div>
                     <span className="text-[8px] font-black uppercase tracking-widest text-sepm-cyan bg-sepm-cyan/10 px-2 py-1 rounded">Organization Admin</span>
                   </div>
                   {authUsers.filter(e => e !== 'crcjehaas@gmail.com').map(email => (
-                    <div key={email} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 group">
-                      <span className="text-sm font-medium text-white/80">{email}</span>
+                    <div key={email} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 group">
+                      <span className="text-sm font-medium text-slate-700">{email}</span>
                       <button 
                         onClick={() => handleRemoveUser(email)}
-                        className="p-2 text-white/20 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                        className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                       >
                         <Trash2 size={14} />
                       </button>
                     </div>
                   ))}
                   {authUsers.length === 0 && (
-                    <p className="text-[10px] text-white/20 text-center py-4 italic">No additional personnel authorized yet.</p>
+                    <p className="text-[10px] text-slate-300 text-center py-4 italic font-medium uppercase tracking-tighter">No additional personnel authorized yet.</p>
                   )}
                 </div>
               </div>
@@ -1454,13 +1464,13 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
           </section>
         )}
 
-        <section className="space-y-6 opacity-80">
+        <section className="space-y-6 opacity-90">
           <div className="flex items-center gap-3 text-red-500">
             <Trash2 size={20} />
             <h3 className="font-black uppercase tracking-widest text-sm">Session Control</h3>
           </div>
-          <div className="bg-white/5 border border-white/10 rounded-[32px] p-8 space-y-6">
-            <p className="text-sm text-white/60 leading-relaxed">
+          <div className="bg-white border border-slate-200 rounded-[32px] p-8 space-y-6 shadow-sm">
+            <p className="text-sm text-slate-600 leading-relaxed font-medium">
               Log out to switch stakeholders or clear your session from this device.
             </p>
             <button 
@@ -1468,16 +1478,16 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
                 await auth.signOut();
                 onBack(); // Go to welcome
               }}
-              className="w-full py-5 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-red-500 hover:text-white transition-all"
+              className="w-full py-5 bg-red-50 border border-red-500 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-red-600 transition-all shadow-md"
             >
               Terminate Session
             </button>
           </div>
         </section>
 
-        <div className="pt-8 border-t border-white/5 space-y-4">
-          <div className="bg-white/5 rounded-2xl p-6 text-center">
-            <p className="text-[10px] text-white/20 font-mono tracking-tighter uppercase leading-relaxed">
+        <div className="pt-8 border-t border-slate-200 space-y-4">
+          <div className="bg-slate-100/50 rounded-2xl p-6 text-center border border-slate-200/50">
+            <p className="text-[10px] text-slate-400 font-mono tracking-tighter uppercase leading-relaxed font-medium">
               Configuration ID: SEPM-NODE-{new Date().getTime().toString(16).toUpperCase()} • ALL CHANGES PERSISTED LOCALLY
             </p>
           </div>

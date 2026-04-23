@@ -376,13 +376,13 @@ export function InspectionForm({ inspection, setInspection, onBack, onComplete }
           disabled={submitting}
           className={cn(
             "flex-[2] py-3.5 md:py-5 font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-xl shadow-sepm-cyan/20 text-xs uppercase tracking-widest",
-            stepIndex === STEPS.length - 1 ? (isReadOnly ? "bg-slate-800 text-white" : "bg-sepm-dark text-white") : "bg-sepm-cyan text-white",
+            stepIndex === STEPS.length - 1 ? (isReadOnly ? "bg-slate-800 text-white" : "bg-sepm-dark text-white") : "bg-sepm-cyan text-slate-950",
             submitting && "opacity-50 cursor-wait"
           )}
         >
           {submitting ? (
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-slate-900/30 border-t-slate-900 rounded-full animate-spin" />
               {statusMsg || 'Transmitting...'}
             </div>
           ) : (
