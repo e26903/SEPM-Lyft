@@ -916,20 +916,21 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
       getAuthorizedUsers().then(setAuthUsers);
     }
 
-    // Health Check with cache buster
+    // Health Check with fallback and cache buster
     const timestamp = Date.now();
-    fetch(`/api/health?_=${timestamp}`)
-      .then(async r => {
-        if (!r.ok) {
-          const text = await r.text();
-          throw new Error(`HTTP ${r.status}: ${text.substring(0, 50)}`);
-        }
-        return r.json();
-      })
+    const tryHealth = async (endpoint: string) => {
+      const response = await fetch(`${endpoint}?_=${timestamp}`);
+      if (!response.ok) throw new Error(`${endpoint}: HTTP ${response.status}`);
+      return response.json();
+    };
+
+    tryHealth('/api/health')
+      .catch(() => tryHealth('/status'))
+      .catch(() => tryHealth('/healthz'))
       .then(setHealth)
       .catch((err) => {
         console.error("Health Check Failed:", err.message);
-        setHealth({ status: 'offline', env: `Error: ${err.message}` });
+        setHealth({ status: 'offline', env: `Error: ${err.message}. Node: ${import.meta.env.MODE}` });
       });
   }, [isAdmin]);
 

@@ -1,5 +1,13 @@
 import express from "express";
-console.log("[SERVER] Starting initial process...");
+console.log("[SERVER] Bootstrapping...");
+
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
+});
 import path from "path";
 import fs from "fs";
 import { Dropbox } from "dropbox";
@@ -9,14 +17,20 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // VERY TOP HEALTH CHECK
+  // MULTIPLE HEALTH CHECK ENDPOINTS FOR DIAGNOSTICS
   app.get("/api/health", (req, res) => {
-    res.json({ 
-      status: "ok", 
-      v: "7.5-stable",
-      env: process.env.NODE_ENV || 'production',
-      platform: 'cloudrun'
-    });
+    console.log("[SERVER] /api/health hit");
+    res.json({ status: "ok", v: "7.9a", env: process.env.NODE_ENV });
+  });
+
+  app.get("/status", (req, res) => {
+    console.log("[SERVER] /status hit");
+    res.json({ status: "ok", v: "7.9b", mode: "direct" });
+  });
+
+  app.get("/healthz", (req, res) => {
+    console.log("[SERVER] /healthz hit");
+    res.json({ status: "ok", v: "7.9c" });
   });
 
   // INCREASE PAYLOAD LIMIT
