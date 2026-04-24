@@ -17,6 +17,13 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // --- ABSOLUTE TOP PRIORITY HEALTH CHECKS ---
+  app.get('/health', (req, res) => res.status(200).send('OK'));
+  app.get('/healthz', (req, res) => res.status(200).send('OK'));
+  app.get('/ping', (req, res) => res.status(200).send('OK'));
+  app.get('/api/health', (req, res) => res.status(200).send('OK'));
+  app.get('/api/ping', (req, res) => res.status(200).send('OK'));
+
   // Essential settings
   app.set('trust proxy', true);
   app.set('strict routing', false);
@@ -28,29 +35,13 @@ async function startServer() {
     next();
   });
 
-  // --- 2. EMERGENCY ROUTING OVERRIDE (FIX 404s) ---
-  // We handle these before ANY other middleware or routers
-  app.use((req, res, next) => {
-    const p = req.path.toLowerCase();
-    if (p === '/ping' || p === '/healthz' || p === '/health' || p === '/status' || p === '/api/ping' || p === '/api/health') {
-      return res.status(200).json({ 
-        status: "ok", 
-        v: "16.1", 
-        env: process.env.NODE_ENV,
-        p: req.path,
-        timestamp: new Date().toISOString()
-      });
-    }
-    next();
-  });
-
   // --- 3. MIDDLEWARE ---
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // --- 4. API HUB ---
-  // Mount directly for maximum visibility
   app.all("/api/smartsheet-api-proxy", async (req, res) => {
+    console.log(`[API-PROXY] ${req.method} request received`);
     const sheetId = req.method === 'POST' ? req.body.sheetId : req.query.sheetId;
     const token = req.method === 'POST' ? req.body.token : req.query.token;
 
@@ -104,8 +95,14 @@ async function startServer() {
 
   // --- 5. STATIC FILES & PRODUCTION SERVING ---
   const publicPath = path.join(process.cwd(), 'public');
+  const distPath = path.join(process.cwd(), 'dist');
 
-  if (process.env.NODE_ENV !== "production") {
+  // Check if we have a production build
+  const isProduction = fs.existsSync(path.join(distPath, 'index.html'));
+  console.log(`[SERVER] Mode: ${isProduction ? 'Production' : 'Development'}`);
+
+  if (!isProduction) {
+    console.log("[SERVER] Starting Vite middleware...");
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -113,11 +110,17 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    console.log("[SERVER] Serving static files from dist...");
     app.use(express.static(distPath));
-    app.use(express.static(publicPath));
+    if (fs.existsSync(publicPath)) {
+      app.use(express.static(publicPath));
+    }
+    
     app.get('*', (req, res) => {
-      if (req.path.startsWith('/api')) return res.status(404).json({ error: "Not Found" });
+      // Don't serve HTML for missing API routes
+      if (req.path.startsWith('/api')) {
+        return res.status(404).json({ error: "Not Found" });
+      }
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
