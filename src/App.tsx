@@ -95,6 +95,9 @@ export default function App() {
       loadInspections();
       if (u && currentScreen === 'welcome') {
         setCurrentScreen('dashboard');
+      } else if (!u) {
+        // If logged out, force welcome screen
+        setCurrentScreen('welcome');
       }
     });
     return () => unsubscribe();
@@ -102,9 +105,9 @@ export default function App() {
 
   useEffect(() => {
     // Scroll entire screen to top when navigation occurs
-    window.scrollTo(0, 0);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     if (mainStageRef.current) {
-      mainStageRef.current.scrollTop = 0;
+      mainStageRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [currentScreen]);
 
@@ -433,20 +436,60 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
           </div>
         ) : (
           <div className="space-y-6">
-            {!showAuth ? (
-              <motion.button
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowAuth(true)}
-                className="px-16 py-5 bg-sepm-cyan hover:bg-sepm-cyan/90 text-slate-900 font-black rounded-full text-xl shadow-2xl shadow-sepm-cyan/30 transition-all uppercase tracking-[0.2em]"
-              >
-                Login
-              </motion.button>
-            ) : (
-              <form onSubmit={handleEmailLogin} className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
-                <div className="space-y-4 bg-white p-6 md:p-8 rounded-[2rem] border border-slate-100 shadow-xl">
+            <motion.button
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setShowAuth(true);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                if (mainStageRef.current) {
+                  mainStageRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+              }}
+              className="px-16 py-5 bg-sepm-cyan hover:bg-sepm-cyan/90 text-slate-900 font-black rounded-full text-xl shadow-2xl shadow-sepm-cyan/30 transition-all uppercase tracking-[0.2em]"
+            >
+              Login
+            </motion.button>
+          </div>
+        )}
+
+        <div className="space-y-4 pt-4 opacity-40">
+          <p className="text-slate-900 text-[10px] font-bold tracking-[0.4em] uppercase">
+            SEPM Construction & Maintenance
+          </p>
+          <p className="text-sepm-cyan text-[9px] font-mono font-bold tracking-widest">
+            STATION INSPECTION PROTOCOL v1.0.44
+          </p>
+        </div>
+      </div>
+
+      {/* Auth Overlay */}
+      <AnimatePresence>
+        {showAuth && !user && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.9, y: 20, opacity: 0 }}
+              className="w-full max-w-sm"
+            >
+              <form onSubmit={handleEmailLogin} className="space-y-4">
+                <div className="space-y-4 bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-2xl relative">
+                  <button 
+                    type="button"
+                    onClick={() => setShowAuth(false)}
+                    className="absolute top-6 right-6 p-2 text-slate-300 hover:text-slate-900 transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+
                   <div className="text-left mb-6">
                     <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Portal Sign In</h3>
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Authorized Personnel Only</p>
@@ -469,7 +512,7 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
                       type="password"
                       required
                       placeholder="••••••••"
-                      className="w-full bg-slate-50 border border-slate-100 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all font-medium"
+                      className="w-full bg-slate-50 border border-slate-200 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all font-medium"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
@@ -490,29 +533,13 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
                     >
                       Forgot Password?
                     </button>
-                    <button 
-                      type="button"
-                      onClick={() => setShowAuth(false)}
-                      className="text-[10px] text-slate-300 font-black uppercase tracking-widest hover:text-slate-900 transition-colors"
-                    >
-                      Back
-                    </button>
                   </div>
                 </div>
               </form>
-            )}
-          </div>
+            </motion.div>
+          </motion.div>
         )}
-
-        <div className="space-y-4 pt-4 opacity-40">
-          <p className="text-slate-900 text-[10px] font-bold tracking-[0.4em] uppercase">
-            SEPM Construction & Maintenance
-          </p>
-          <p className="text-sepm-cyan text-[9px] font-mono font-bold tracking-widest">
-            STATION INSPECTION PROTOCOL v1.0.44
-          </p>
-        </div>
-      </div>
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -938,11 +965,11 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
       }
     };
 
-    tryHealth('/api/health')
+    tryHealth('/api/ping')
+      .catch(() => tryHealth('/ping'))
+      .catch(() => tryHealth('/api/health'))
       .catch(() => tryHealth('/status'))
       .catch(() => tryHealth('/healthz'))
-      .catch(() => tryHealth('/ping'))
-      .catch(() => tryHealth('/health-check-internal'))
       .then(setHealth)
       .catch((err) => {
         console.error("Health Check Failed:", err.message);
@@ -1560,9 +1587,9 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
             <button 
               onClick={async () => {
                 await auth.signOut();
-                onBack(); // Go to welcome
+                setCurrentScreen('welcome');
               }}
-              className="w-full py-5 bg-red-50 border border-red-500 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-red-600 transition-all shadow-md"
+              className="w-full py-5 bg-red-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-red-700 transition-all shadow-lg shadow-red-600/20"
             >
               Terminate Session
             </button>
@@ -1579,7 +1606,11 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
           <div className="flex items-center justify-center gap-2">
              <div className={cn("w-1.5 h-1.5 rounded-full", health?.status === 'ok' ? 'bg-teal-500' : 'bg-red-500')} />
              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center px-4 break-words">
-               Backend Status: {health ? `${health.status} ${health.v ? `(${health.v})` : ''}` : 'Initializing...'}
+               Backend: {health ? (
+                  <span className={health.status === 'ok' ? 'text-teal-600' : 'text-red-500'}>
+                    {health.status === 'ok' ? 'Online' : 'Offline'} {health.v ? `v${health.v}` : ''}
+                  </span>
+                ) : 'Connecting...'}
                {health?.status === 'offline' && (
                  <span className="block mt-1 text-red-400 font-mono text-[8px] lowercase opacity-75">{health.env}</span>
                )}

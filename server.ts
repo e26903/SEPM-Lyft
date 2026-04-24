@@ -17,17 +17,14 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // --- ABSOLUTE TOP PRIORITY HEALTH CHECKS ---
-  // Registered before any middleware to ensure they always respond
-  app.use('/health-check-internal', (req, res) => {
-    res.setHeader('Content-Type', 'application/json');
-    return res.status(200).send(JSON.stringify({ status: "ok", type: "middleware" }));
-  });
+  app.set('trust proxy', true);
 
-  app.get('/ping', (req, res) => res.status(200).json({ pong: true, v: "10.0" }));
-  app.get('/healthz', (req, res) => res.status(200).json({ status: "ok", v: "10.0" }));
-  app.get('/status', (req, res) => res.status(200).json({ status: "ok", v: "10.0" }));
-  app.get('/api/health', (req, res) => res.status(200).json({ status: "ok", v: "10.0" }));
+  // --- ABSOLUTE TOP PRIORITY HEALTH CHECKS ---
+  app.get('/ping', (req, res) => res.status(200).json({ status: "ok", pong: true, v: "11.1", env: process.env.NODE_ENV }));
+  app.get('/api/ping', (req, res) => res.status(200).json({ status: "ok", pong: true, v: "11.1", env: process.env.NODE_ENV }));
+  app.get('/api/health', (req, res) => res.status(200).json({ status: "ok", v: "11.1" }));
+  app.get('/healthz', (req, res) => res.status(200).json({ status: "ok", v: "11.1" }));
+  app.get('/status', (req, res) => res.status(200).json({ status: "ok", v: "11.1" }));
 
   // Standard Middleware
   app.use(express.json({ limit: '50mb' }));
