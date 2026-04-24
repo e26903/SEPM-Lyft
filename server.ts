@@ -17,28 +17,21 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // --- CRITICAL: FAST PATH HEALTH CHECKS ---
-  // Guaranteed JSON responses with diagnostic headers
-  const healthHandler = (req: express.Request, res: express.Response) => {
-    console.log(`[HEALTH] Match on ${req.originalUrl || req.url}`);
+  // --- ABSOLUTE TOP PRIORITY HEALTH CHECKS ---
+  // Registered before any middleware to ensure they always respond
+  app.use('/health-check-internal', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
-    res.setHeader('X-Response-Source', 'Express-Hardened');
-    return res.status(200).send(JSON.stringify({ 
-      status: "ok", 
-      v: "9.0-Final",
-      env: process.env.NODE_ENV || 'production',
-      time: new Date().toISOString()
-    }));
-  };
+    return res.status(200).send(JSON.stringify({ status: "ok", type: "middleware" }));
+  });
 
-  app.get('/api/health', healthHandler);
-  app.get('/status', healthHandler);
-  app.get('/healthz', healthHandler);
-  app.get('/ping', (req, res) => res.json({ pong: true }));
+  app.get('/ping', (req, res) => res.status(200).json({ pong: true, v: "10.0" }));
+  app.get('/healthz', (req, res) => res.status(200).json({ status: "ok", v: "10.0" }));
+  app.get('/status', (req, res) => res.status(200).json({ status: "ok", v: "10.0" }));
+  app.get('/api/health', (req, res) => res.status(200).json({ status: "ok", v: "10.0" }));
 
-  // INCREASE PAYLOAD LIMIT
-  app.use(bodyParser.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ extended: true }));
+  // Standard Middleware
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // ROOT LEVEL LOGGING
   app.use((req, res, next) => {
@@ -50,7 +43,7 @@ async function startServer() {
   const apiRouter = express.Router();
   
   // Internal API health check
-  apiRouter.get('/health', healthHandler);
+  apiRouter.get('/health', (req, res) => res.json({ status: "ok", type: "router" }));
 
   apiRouter.all("/smartsheet-api-proxy", async (req, res) => {
     console.log(`[API] Smartsheet Proxy Match: ${req.method}`);
@@ -145,8 +138,8 @@ async function startServer() {
 
     app.get('*', (req, res) => {
       // API check to ensure we don't serve HTML for /api errors
-      if (req.path.startsWith('/api')) {
-        return res.status(404).json({ error: "API route not found" });
+      if (req.path.startsWith('/api') || req.path === '/ping' || req.path === '/status' || req.path === '/healthz') {
+        return res.status(404).json({ error: "API route not found", path: req.path });
       }
 
       // Remove query string for file check

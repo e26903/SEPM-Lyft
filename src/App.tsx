@@ -942,12 +942,13 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
       .catch(() => tryHealth('/status'))
       .catch(() => tryHealth('/healthz'))
       .catch(() => tryHealth('/ping'))
+      .catch(() => tryHealth('/health-check-internal'))
       .then(setHealth)
       .catch((err) => {
         console.error("Health Check Failed:", err.message);
         setHealth({ 
           status: 'offline', 
-          env: err.message.includes("HTML") ? "Check Cloud Provider Routing (HTML fallback detected)" : `Last error: ${err.message.substring(0, 60)}`
+          env: err.message.includes("HTML") ? "HTML Fallback Detected (Check Routing)" : `Err: ${err.message.substring(0, 40)}`
         });
       });
   }, [isAdmin]);
