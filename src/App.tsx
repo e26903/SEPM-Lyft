@@ -941,12 +941,13 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
     tryHealth('/api/health')
       .catch(() => tryHealth('/status'))
       .catch(() => tryHealth('/healthz'))
+      .catch(() => tryHealth('/ping'))
       .then(setHealth)
       .catch((err) => {
         console.error("Health Check Failed:", err.message);
         setHealth({ 
           status: 'offline', 
-          env: `${err.message.substring(0, 80)}${err.message.length > 80 ? '...' : ''}` 
+          env: err.message.includes("HTML") ? "Check Cloud Provider Routing (HTML fallback detected)" : `Last error: ${err.message.substring(0, 60)}`
         });
       });
   }, [isAdmin]);

@@ -18,21 +18,23 @@ async function startServer() {
   const PORT = 3000;
 
   // --- CRITICAL: FAST PATH HEALTH CHECKS ---
-  // These must be at the absolute top to bypass any middleware or static fallbacks
-  app.get(['/api/health', '/status', '/healthz'], (req, res) => {
-    console.log(`[HEALTH-FAST] ${req.path} hit`);
+  // Guaranteed JSON responses with diagnostic headers
+  const healthHandler = (req: express.Request, res: express.Response) => {
+    console.log(`[HEALTH] Match on ${req.originalUrl || req.url}`);
     res.setHeader('Content-Type', 'application/json');
-    res.setHeader('X-Backend-Version', '8.1-stable');
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
+    res.setHeader('X-Response-Source', 'Express-Hardened');
     return res.status(200).send(JSON.stringify({ 
       status: "ok", 
-      v: "8.1",
+      v: "9.0-Final",
       env: process.env.NODE_ENV || 'production',
       time: new Date().toISOString()
     }));
-  });
+  };
+
+  app.get('/api/health', healthHandler);
+  app.get('/status', healthHandler);
+  app.get('/healthz', healthHandler);
+  app.get('/ping', (req, res) => res.json({ pong: true }));
 
   // INCREASE PAYLOAD LIMIT
   app.use(bodyParser.json({ limit: '50mb' }));
@@ -46,6 +48,9 @@ async function startServer() {
 
   // Dedicated API Router
   const apiRouter = express.Router();
+  
+  // Internal API health check
+  apiRouter.get('/health', healthHandler);
 
   apiRouter.all("/smartsheet-api-proxy", async (req, res) => {
     console.log(`[API] Smartsheet Proxy Match: ${req.method}`);
