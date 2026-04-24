@@ -20,35 +20,30 @@ async function startServer() {
   app.set('trust proxy', true);
 
   // --- ABSOLUTE TOP PRIORITY HEALTH CHECKS ---
-  app.get('/ping', (req, res) => res.status(200).json({ status: "ok", pong: true, v: "11.1", env: process.env.NODE_ENV }));
-  app.get('/api/ping', (req, res) => res.status(200).json({ status: "ok", pong: true, v: "11.1", env: process.env.NODE_ENV }));
-  app.get('/api/health', (req, res) => res.status(200).json({ status: "ok", v: "11.1" }));
-  app.get('/healthz', (req, res) => res.status(200).json({ status: "ok", v: "11.1" }));
-  app.get('/status', (req, res) => res.status(200).json({ status: "ok", v: "11.1" }));
+  // Registered at the root to ensure accessibility regardless of other routes
+  const healthResponse = (req: any, res: any) => {
+    return res.status(200).json({ 
+      status: "ok", 
+      v: "11.2", 
+      env: process.env.NODE_ENV,
+      time: new Date().toISOString()
+    });
+  };
+
+  app.all(['/ping', '/api/ping', '/api/health', '/status', '/healthz'], healthResponse);
 
   // Standard Middleware
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-  // ROOT LEVEL LOGGING
-  app.use((req, res, next) => {
-    console.log(`[REQ] ${req.method} ${req.url}`);
-    next();
-  });
-
-  // Dedicated API Router
-  const apiRouter = express.Router();
-  
-  // Internal API health check
-  apiRouter.get('/health', (req, res) => res.json({ status: "ok", type: "router" }));
-
-  apiRouter.all("/smartsheet-api-proxy", async (req, res) => {
-    console.log(`[API] Smartsheet Proxy Match: ${req.method}`);
+  // --- API DIRECT MOUNT ---
+  // Avoid Router nesting issues in production
+  app.all("/api/smartsheet-api-proxy", async (req, res) => {
+    console.log(`[API] Smartsheet Proxy Hit: ${req.method} ${req.url}`);
     const sheetId = req.method === 'POST' ? req.body.sheetId : req.query.sheetId;
     const token = req.method === 'POST' ? req.body.token : req.query.token;
 
     if (!sheetId || !token) {
-      console.warn("[API] Missing Auth/ID", { sheetId: !!sheetId, token: !!token });
       return res.status(400).json({ error: "Missing Sheet ID or Authorization Token" });
     }
 
@@ -58,8 +53,7 @@ async function startServer() {
       });
       if (!response.ok) {
         const text = await response.text();
-        console.error("[API] Smartsheet Error", response.status, text);
-        throw new Error(`HTTP ${response.status}`);
+        throw new Error(`HTTP ${response.status}: ${text}`);
       }
       const data = await response.json();
       res.json(data);
@@ -69,7 +63,7 @@ async function startServer() {
     }
   });
 
-  apiRouter.post("/upload-to-dropbox", async (req, res) => {
+  app.post("/api/upload-to-dropbox", async (req, res) => {
     const { pdfBase64, fileName, accessToken } = req.body;
     if (!pdfBase64 || !fileName) return res.status(400).json({ error: "Missing data" });
     const token = accessToken || process.env.DROPBOX_ACCESS_TOKEN;
@@ -85,7 +79,7 @@ async function startServer() {
     }
   });
 
-  apiRouter.get("/proxy-site-data", async (req, res) => {
+  app.get("/api/proxy-site-data", async (req, res) => {
     const { url } = req.query;
     if (!url || typeof url !== 'string') return res.status(400).json({ error: "Missing URL" });
     try {
@@ -98,12 +92,9 @@ async function startServer() {
     }
   });
 
-  // MOUNT API ROUTER FIRST
-  app.use("/api", apiRouter);
-
   // Fallback for /api to avoid index.html bleed
-  app.use("/api", (req, res) => {
-    res.status(404).json({ error: "Not Found", path: req.url });
+  app.use("/api/*", (req, res) => {
+    res.status(404).json({ error: "API Route Not Found", path: req.originalUrl });
   });
 
   // --- STATIC FILES NEXT ---

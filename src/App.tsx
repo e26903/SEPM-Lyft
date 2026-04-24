@@ -95,8 +95,7 @@ export default function App() {
       loadInspections();
       if (u && currentScreen === 'welcome') {
         setCurrentScreen('dashboard');
-      } else if (!u) {
-        // If logged out, force welcome screen
+      } else if (!u && currentScreen !== 'welcome') {
         setCurrentScreen('welcome');
       }
     });
@@ -104,10 +103,10 @@ export default function App() {
   }, [currentScreen]);
 
   useEffect(() => {
-    // Scroll entire screen to top when navigation occurs
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Immediate scroll to top when screen changes
+    window.scrollTo(0, 0);
     if (mainStageRef.current) {
-      mainStageRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      mainStageRef.current.scrollTop = 0;
     }
   }, [currentScreen]);
 
@@ -443,10 +442,9 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
               whileTap={{ scale: 0.95 }}
               onClick={() => {
                 setShowAuth(true);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-                if (mainStageRef.current) {
-                  mainStageRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-                }
+                // Ensure we are at top
+                window.scrollTo(0, 0);
+                if (mainStageRef.current) mainStageRef.current.scrollTop = 0;
               }}
               className="px-16 py-5 bg-sepm-cyan hover:bg-sepm-cyan/90 text-slate-900 font-black rounded-full text-xl shadow-2xl shadow-sepm-cyan/30 transition-all uppercase tracking-[0.2em]"
             >
@@ -472,20 +470,26 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md"
+            className="fixed inset-0 z-[110] flex items-start justify-center p-4 bg-slate-950/70 backdrop-blur-sm overflow-y-auto"
           >
             <motion.div
-              initial={{ scale: 0.9, y: 20, opacity: 0 }}
+              initial={{ scale: 0.95, y: 40, opacity: 0 }}
               animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.9, y: 20, opacity: 0 }}
-              className="w-full max-w-sm"
+              exit={{ scale: 0.95, y: 40, opacity: 0 }}
+              className="w-full max-w-sm mt-12 mb-12"
             >
               <form onSubmit={handleEmailLogin} className="space-y-4">
                 <div className="space-y-4 bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-2xl relative">
+                  
+                  {/* Logo visibility in Auth screen */}
+                  <div className="mb-8 p-1 bg-black rounded-2xl overflow-hidden shadow-inner aspect-video">
+                    <LogoAnimation />
+                  </div>
+
                   <button 
                     type="button"
                     onClick={() => setShowAuth(false)}
-                    className="absolute top-6 right-6 p-2 text-slate-300 hover:text-slate-900 transition-colors"
+                    className="absolute top-6 right-6 p-2 text-slate-300 hover:text-slate-900 transition-colors z-10"
                   >
                     <X size={20} />
                   </button>
