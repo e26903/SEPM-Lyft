@@ -17,33 +17,53 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // Essential settings
   app.set('trust proxy', true);
+  app.set('strict routing', false);
+  app.set('case sensitive routing', false);
 
-  // --- ABSOLUTE TOP PRIORITY HEALTH CHECKS ---
-  // Registered at the root to ensure accessibility regardless of other routes
-  const healthResponse = (req: any, res: any) => {
-    return res.status(200).json({ 
+  // --- 1. GLOBAL LOGGING & RESILIENCE ---
+  app.use((req, res, next) => {
+    const isApi = req.url.startsWith('/api') || ['/ping', '/status', '/healthz'].includes(req.path);
+    if (isApi) {
+      console.log(`[REQ] ${req.method} ${req.url} (from: ${req.ip})`);
+    }
+    next();
+  });
+
+  // --- 2. CORE HEALTH CHECKS (TOP PRIORITY) ---
+  const healthHandler = (req: any, res: any) => {
+    console.log(`[HEALTH] Responding to ${req.path}`);
+    res.status(200).json({ 
       status: "ok", 
-      v: "11.2", 
+      v: "13.0", 
       env: process.env.NODE_ENV,
-      time: new Date().toISOString()
+      p: req.path
     });
   };
 
-  app.all(['/ping', '/api/ping', '/api/health', '/status', '/healthz'], healthResponse);
+  app.get('/ping', healthHandler);
+  app.get('/api/ping', healthHandler);
+  app.get('/api/health', healthHandler);
+  app.get('/status', healthHandler);
+  app.get('/healthz', healthHandler);
 
-  // Standard Middleware
+  // --- 3. MIDDLEWARE ---
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-  // --- API DIRECT MOUNT ---
-  // Avoid Router nesting issues in production
-  app.all("/api/smartsheet-api-proxy", async (req, res) => {
-    console.log(`[API] Smartsheet Proxy Hit: ${req.method} ${req.url}`);
+  // --- 4. API PROXY ROUTES ---
+  // Registered individually for maximum compatibility
+  app.get("/api/smartsheet-api-proxy", handleSmartsheetProxy);
+  app.post("/api/smartsheet-api-proxy", handleSmartsheetProxy);
+  
+  async function handleSmartsheetProxy(req: any, res: any) {
+    console.log(`[PROXY] Handling Smartsheet Sync: ${req.method}`);
     const sheetId = req.method === 'POST' ? req.body.sheetId : req.query.sheetId;
     const token = req.method === 'POST' ? req.body.token : req.query.token;
 
     if (!sheetId || !token) {
+      console.warn("[PROXY] Missing params", { sheetId: !!sheetId, token: !!token });
       return res.status(400).json({ error: "Missing Sheet ID or Authorization Token" });
     }
 
@@ -58,10 +78,10 @@ async function startServer() {
       const data = await response.json();
       res.json(data);
     } catch (error: any) {
-      console.error("[API] Sync Error", error.message);
+      console.error("[PROXY] Failed:", error.message);
       res.status(500).json({ error: "Sync failed", details: error.message });
     }
-  });
+  }
 
   app.post("/api/upload-to-dropbox", async (req, res) => {
     const { pdfBase64, fileName, accessToken } = req.body;
@@ -92,12 +112,7 @@ async function startServer() {
     }
   });
 
-  // Fallback for /api to avoid index.html bleed
-  app.use("/api/*", (req, res) => {
-    res.status(404).json({ error: "API Route Not Found", path: req.originalUrl });
-  });
-
-  // --- STATIC FILES NEXT ---
+  // --- 5. STATIC FILES & SPA FALLBACK ---
 
   const publicPath = path.join(process.cwd(), 'public');
 

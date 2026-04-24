@@ -433,8 +433,10 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
               Enter Portal
             </motion.button>
           </div>
-        ) : (
+        ) : !showAuth ? (
           <div className="space-y-6">
+            <h1 className="text-3xl md:text-4xl font-black text-slate-950 uppercase italic tracking-tighter leading-none mb-2">Operational Portal</h1>
+            <p className="text-zinc-500 font-medium text-sm md:text-base leading-relaxed mb-8 max-w-xs mx-auto">Authorized technicians only. Access station inspections and site manifests.</p>
             <motion.button
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -442,108 +444,87 @@ function WelcomeScreen({ onStart }: { onStart: () => void, key?: string }) {
               whileTap={{ scale: 0.95 }}
               onClick={() => {
                 setShowAuth(true);
-                // Ensure we are at top
                 window.scrollTo(0, 0);
-                if (mainStageRef.current) mainStageRef.current.scrollTop = 0;
               }}
               className="px-16 py-5 bg-sepm-cyan hover:bg-sepm-cyan/90 text-slate-900 font-black rounded-full text-xl shadow-2xl shadow-sepm-cyan/30 transition-all uppercase tracking-[0.2em]"
             >
               Login
             </motion.button>
           </div>
+        ) : (
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="w-full"
+          >
+            <form onSubmit={handleEmailLogin} className="space-y-4">
+              <div className="space-y-4 bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-2xl relative text-left">
+                <button 
+                  type="button"
+                  onClick={() => setShowAuth(false)}
+                  className="absolute top-6 right-6 p-2 text-slate-300 hover:text-slate-900 transition-colors"
+                >
+                  <ArrowLeft size={20} />
+                </button>
+
+                <div className="mb-6">
+                  <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Portal Sign In</h3>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Technician Authorization</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Email Address</label>
+                  <input 
+                    type="email"
+                    required
+                    placeholder="name@company.com"
+                    className="w-full bg-slate-50 border border-slate-100 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all font-medium"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Password</label>
+                  <input 
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    className="w-full bg-slate-50 border border-slate-200 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all font-medium"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </div>
+                <button 
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full py-5 bg-sepm-cyan text-slate-900 rounded-3xl font-black uppercase tracking-widest text-xs hover:brightness-110 shadow-lg shadow-sepm-cyan/20 disabled:opacity-50 transition-all mt-4"
+                >
+                  {isSubmitting ? 'Verifying Authorization...' : 'Enter Portal'}
+                </button>
+                
+                <div className="flex flex-col space-y-4 pt-2">
+                  <button 
+                    type="button"
+                    onClick={handleForgotPassword}
+                    className="text-[10px] text-slate-400 font-bold uppercase tracking-widest hover:text-sepm-cyan transition-colors mx-auto"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+              </div>
+            </form>
+          </motion.div>
         )}
 
-        <div className="space-y-4 pt-4 opacity-40">
+        <div className="space-y-4 pt-1 opacity-40">
           <p className="text-slate-900 text-[10px] font-bold tracking-[0.4em] uppercase">
             SEPM Construction & Maintenance
           </p>
           <p className="text-sepm-cyan text-[9px] font-mono font-bold tracking-widest">
-            STATION INSPECTION PROTOCOL v1.0.44
+            STATION INSPECTION PROTOCOL v1.1.0
           </p>
         </div>
       </div>
-
-      {/* Auth Overlay */}
-      <AnimatePresence>
-        {showAuth && !user && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[110] flex items-start justify-center p-4 bg-slate-950/70 backdrop-blur-sm overflow-y-auto"
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 40, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.95, y: 40, opacity: 0 }}
-              className="w-full max-w-sm mt-12 mb-12"
-            >
-              <form onSubmit={handleEmailLogin} className="space-y-4">
-                <div className="space-y-4 bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-2xl relative">
-                  
-                  {/* Logo visibility in Auth screen */}
-                  <div className="mb-8 p-1 bg-black rounded-2xl overflow-hidden shadow-inner aspect-video">
-                    <LogoAnimation />
-                  </div>
-
-                  <button 
-                    type="button"
-                    onClick={() => setShowAuth(false)}
-                    className="absolute top-6 right-6 p-2 text-slate-300 hover:text-slate-900 transition-colors z-10"
-                  >
-                    <X size={20} />
-                  </button>
-
-                  <div className="text-left mb-6">
-                    <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Portal Sign In</h3>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Authorized Personnel Only</p>
-                  </div>
-
-                  <div className="space-y-2 text-left">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Email Address</label>
-                    <input 
-                      type="email"
-                      required
-                      placeholder="name@company.com"
-                      className="w-full bg-slate-50 border border-slate-100 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all font-medium"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2 text-left">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Password</label>
-                    <input 
-                      type="password"
-                      required
-                      placeholder="••••••••"
-                      className="w-full bg-slate-50 border border-slate-200 px-6 py-4 rounded-3xl text-sm outline-none focus:border-sepm-cyan transition-all font-medium"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
-                  </div>
-                  <button 
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full py-5 bg-sepm-cyan text-slate-900 rounded-3xl font-black uppercase tracking-widest text-xs hover:brightness-110 shadow-lg shadow-sepm-cyan/20 disabled:opacity-50 transition-all mt-4"
-                  >
-                    {isSubmitting ? 'Verifying Authorization...' : 'Enter Portal'}
-                  </button>
-                  
-                  <div className="flex flex-col space-y-4 pt-4">
-                    <button 
-                      type="button"
-                      onClick={handleForgotPassword}
-                      className="text-[10px] text-slate-400 font-bold uppercase tracking-widest hover:text-sepm-cyan transition-colors mx-auto"
-                    >
-                      Forgot Password?
-                    </button>
-                  </div>
-                </div>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </motion.div>
   );
 }
