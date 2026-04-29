@@ -269,21 +269,29 @@ export async function syncSitesFromRemote(): Promise<{ success: boolean; count: 
       try {
         console.log(`[SYNC-DEBUG] Extracted Sheet ID: ${sheetId}`);
         const tryFetch = async (fetchUrl: string, options: any) => {
-          console.log(`[SYNC-DEBUG] Fetching ${fetchUrl} with options:`, JSON.stringify({ ...options, body: options.body ? 'PAYLOAD_HIDDEN' : undefined }));
-          const resp = await fetch(fetchUrl, options);
-          if (!resp.ok) {
-            const errText = await resp.text().catch(() => 'No details');
-            console.error(`[SYNC-DEBUG] Fetch failed with ${resp.status}: ${errText}`);
-            throw new Error(`HTTP ${resp.status}: ${errText.substring(0, 50)}`);
+          // Use absolute URL to avoid potential relative path issues in iframes
+          const absoluteUrl = fetchUrl.startsWith('http') ? fetchUrl : `${window.location.origin}${fetchUrl}`;
+          console.log(`[SYNC-DEBUG] Fetching ${absoluteUrl}...`);
+          
+          try {
+            const resp = await fetch(absoluteUrl, options);
+            if (!resp.ok) {
+              const errText = await resp.text().catch(() => 'No details');
+              console.error(`[SYNC-DEBUG] Fetch failed with ${resp.status}: ${errText}`);
+              throw new Error(`HTTP ${resp.status}: ${errText.substring(0, 50)}`);
+            }
+            return await resp.json();
+          } catch (fetchErr: any) {
+            console.error(`[SYNC-DEBUG] Fetch Exception for ${absoluteUrl}:`, fetchErr);
+            throw fetchErr;
           }
-          return await resp.json();
         };
 
         let sheetData;
         try {
-          const finalUrl = `/api/smartsheet-api-proxy?sheetId=${sheetId}&t=${Date.now()}`;
-          console.log(`[SYNC-DEBUG] Attempting Proxy POST to ${finalUrl}`);
-          sheetData = await tryFetch(finalUrl, {
+          const proxyUrl = `/api/smartsheet-api-proxy?sheetId=${sheetId}&t=${Date.now()}`;
+          console.log(`[SYNC-DEBUG] Attempting Proxy POST to ${proxyUrl}`);
+          sheetData = await tryFetch(proxyUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sheetId, token }),

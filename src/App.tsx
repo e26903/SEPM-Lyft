@@ -980,8 +980,8 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
         setDiagnostic({ 
           lastFail: err.message,
           detail: err.message.includes('Got HTML') 
-            ? `The server returned index.html for an API route. This means the SPA fallback is intercepting /api requests. Possible cause: routing order in server.ts.`
-            : `Backend is unreachable or returned invalid response.`
+            ? `API routes (/api/*) are being intercepted by the frontend. This version (205.0) uses absolute origin resolution which should fix this. Check if server.ts routing is correctly ordered.`
+            : `System connection failed. Check if the environment allows outgoing API calls or if the token is valid.`
         });
       });
   }, [isAdmin]);

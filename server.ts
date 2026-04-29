@@ -23,40 +23,42 @@ async function startServer() {
 
   // --- 1. LOGGING MIDDLEWARE (TOP) ---
   app.use((req, res, next) => {
-    console.log(`[BOOT-LOG] ${req.method} ${req.url} (from ${req.ip})`);
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] ${req.method} ${req.url} - User-Agent: ${req.headers['user-agent']}`);
     next();
   });
 
-  // --- MIDDLEWARE ---
+  // --- 2. API ROUTES (PRIORITY) ---
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-  // Simplified Health Routes
+  const apiRouter = express.Router();
+
+  // Health check routes
   const healthReply = (req: any, res: any) => {
-    console.log(`[HEALTH-REPLY] Sending JSON for ${req.path}`);
     res.setHeader('Content-Type', 'application/json');
-    res.status(200).send(JSON.stringify({ 
+    res.json({ 
       status: "ok", 
-      v: "201.0", 
-      time: new Date().toISOString(),
-      method: req.method,
-      path: req.path
-    }));
+      v: "205.0", 
+      env: process.env.NODE_ENV,
+      p: req.path
+    });
   };
 
-  // --- 2. BOTTOM LEVEL API ROUTES ---
+  apiRouter.get("/health", healthReply);
+  apiRouter.get("/ping", healthReply);
+  apiRouter.get("/status", healthReply);
+  apiRouter.get("/diagnostic-test", (req, res) => res.json({ success: true, timestamp: Date.now() }));
+
   const handleSmartsheetProxy = async (req: any, res: any) => {
-    console.log(`[PROXY-API] ${req.method} ${req.originalUrl}`);
-    
+    console.log(`[PROXY] ${req.method} ${req.originalUrl}`);
     let sheetId = req.params.sheetId || req.query.sheetId;
     if (!sheetId && req.body && req.body.sheetId) sheetId = req.body.sheetId;
-    
     let token = req.headers['authorization']?.replace('Bearer ', '');
     if (!token && req.query.token) token = req.query.token;
     if (!token && req.body && req.body.token) token = req.body.token;
 
     if (!sheetId || !token) {
-      console.warn("[PROXY-CREDS-MISSING]", { sheetId: !!sheetId, token: !!token });
       return res.status(400).json({ error: "Missing Credentials" });
     }
 
@@ -74,13 +76,6 @@ async function startServer() {
     }
   };
 
-  const apiRouter = express.Router();
-
-  apiRouter.get("/health", healthReply);
-  apiRouter.get("/ping", healthReply);
-  apiRouter.get("/status", healthReply);
-  apiRouter.get("/v2/test", (req, res) => res.json({ v: 2, env: process.env.NODE_ENV }));
-  
   apiRouter.all("/smartsheet-api-proxy", handleSmartsheetProxy);
   apiRouter.all("/smartsheet-api-proxy/:sheetId", handleSmartsheetProxy);
 
