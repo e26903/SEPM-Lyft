@@ -29,26 +29,30 @@ async function startServer() {
 
   // Simplified Health Routes
   const healthReply = (req: any, res: any) => {
-    res.json({ 
+    console.log(`[HEALTH-REPLY] Sending JSON for ${req.path}`);
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).send(JSON.stringify({ 
       status: "ok", 
-      v: "200.0", 
+      v: "201.0", 
       time: new Date().toISOString(),
       method: req.method,
       path: req.path
-    });
+    }));
   };
 
   app.get("/ping", healthReply);
   app.get("/health", healthReply);
+  app.get("/api/ping", healthReply);
   app.get("/api/health", healthReply);
   app.get("/api/status", healthReply);
   app.get("/api/v1/health-diagnostic", healthReply);
+  app.get("/api/diagnostic-check", healthReply);
 
   // --- 2. MIDDLEWARE ---
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-  // API Proxy Routes - explicitly handled
+  // Priority: API Router
   const handleSmartsheetProxy = async (req: any, res: any) => {
     console.log(`[SMARTSHEET-PROXY-START] ${req.method} ${req.path}`);
     
@@ -92,10 +96,17 @@ async function startServer() {
     }
   };
 
-  app.all("/api/smartsheet-api-proxy", handleSmartsheetProxy);
-  app.all("/api/smartsheet-api-proxy/:sheetId", handleSmartsheetProxy);
+  const apiRouter = express.Router();
 
-  app.post("/api/upload-to-dropbox", async (req: any, res: any) => {
+  apiRouter.get("/health", healthReply);
+  apiRouter.get("/ping", healthReply);
+  apiRouter.get("/status", healthReply);
+  apiRouter.get("/diagnostic-check", healthReply);
+
+  apiRouter.all("/smartsheet-api-proxy", handleSmartsheetProxy);
+  apiRouter.all("/smartsheet-api-proxy/:sheetId", handleSmartsheetProxy);
+
+  apiRouter.post("/upload-to-dropbox", async (req: any, res: any) => {
     console.log("[API] Dropbox Upload requested");
     const { pdfBase64, fileName, accessToken } = req.body;
     if (!pdfBase64 || !fileName) return res.status(400).json({ error: "Missing data" });
@@ -113,7 +124,7 @@ async function startServer() {
     }
   });
 
-  app.get("/api/proxy-site-data", async (req: any, res: any) => {
+  apiRouter.get("/proxy-site-data", async (req: any, res: any) => {
     console.log("[API] Proxy Site Data requested");
     const { url } = req.query;
     if (!url || typeof url !== 'string') return res.status(400).json({ error: "Missing URL" });
@@ -127,6 +138,8 @@ async function startServer() {
       res.status(500).json({ error: "Proxy failed", details: error.message });
     }
   });
+
+  app.use("/api", apiRouter);
 
   // --- 5. STATIC FILES & PRODUCTION SERVING ---
   const publicPath = path.join(process.cwd(), 'public');

@@ -333,7 +333,7 @@ export async function syncSitesFromRemote(): Promise<{ success: boolean; count: 
             return val;
           };
 
-          const sNo = String(getVal(['Location ID', 'Store #', 'Site ID', 'Store Number', 'Site Number', 'ID', 'Location', 'Store No', 'Store', 'Site', 'Loc', 'Station ID', 'Station #', 'Location Number', 'Store/Location', 'STN', 'Unit', 'Stn #', 'Loc #']) || '').trim();
+          const sNo = String(getVal(['Location ID', 'Store #', 'Site ID', 'Store Number', 'Site Number', 'ID', 'Location', 'Store No', 'Store', 'Site', 'Loc', 'Station ID', 'Station #', 'Location Number', 'Store/Location', 'STN', 'Unit', 'Stn #', 'Loc #', 'Site #', 'Site No', 'Station No']) || '').trim();
 
           return {
             storeNo: sNo,
@@ -400,7 +400,7 @@ export async function syncSitesFromRemote(): Promise<{ success: boolean; count: 
             return key ? String(row[key]).trim() : '';
           };
 
-          const sNo = getVal(['Location ID', 'Store #', 'Site ID', 'Store Number', 'Site Number', 'ID', 'Location', 'Store No', 'Store', 'Site', 'Loc', 'Station ID', 'Station #', 'Location Number', 'Store/Location', 'STN', 'Unit', 'Stn #', 'Loc #']) || '';
+          const sNo = getVal(['Location ID', 'Store #', 'Site ID', 'Store Number', 'Site Number', 'ID', 'Location', 'Store No', 'Store', 'Site', 'Loc', 'Station ID', 'Station #', 'Location Number', 'Store/Location', 'STN', 'Unit', 'Stn #', 'Loc #', 'Site #', 'Site No', 'Station No']) || '';
 
           return {
             storeNo: sNo,

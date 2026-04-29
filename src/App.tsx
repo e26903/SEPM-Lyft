@@ -977,6 +977,10 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
           status: 'offline', 
           env: `Fail: ${err.message}`
         });
+        setDiagnostic({ 
+          lastFail: err.message,
+          detail: 'If this says "Got HTML", the API routes are being blocked by the frontend fallback. Check server.ts routing.'
+        });
       });
   }, [isAdmin]);
 
@@ -1016,6 +1020,7 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
   };
 
   const [syncLogs, setSyncLogs] = useState<string[]>([]);
+  const [diagnostic, setDiagnostic] = useState<{ lastFail: string; detail?: string }>({ lastFail: 'Detecting...' });
 
   const addSyncLog = (msg: string) => {
     setSyncLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 5));
@@ -1441,8 +1446,10 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
             {!health?.status || health?.status !== 'ok' ? (
               <div className="space-y-3 mt-4">
                 <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100">
-                  <p className="text-[9px] text-rose-700 font-bold uppercase tracking-widest mb-1">Diagnostic Alert</p>
-                  <p className="text-[9px] text-rose-600">The 404 error usually indicates that the deployment is still propagating or reserved paths are being intercepted by the host.</p>
+                  <p className="text-[9px] text-rose-700 font-bold uppercase tracking-widest mb-1">Diagnostic Alert: {diagnostic.lastFail}</p>
+                  <p className="text-[9px] text-rose-600 leading-relaxed italic">
+                    {diagnostic.detail || 'The request returned HTML instead of JSON. This usually indicates that the backend routes are missing or intercepted.'}
+                  </p>
                 </div>
                 <button
                   id="bypass-health"
