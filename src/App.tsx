@@ -1015,6 +1015,12 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
     });
   };
 
+  const [syncLogs, setSyncLogs] = useState<string[]>([]);
+
+  const addSyncLog = (msg: string) => {
+    setSyncLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 5));
+  };
+
   const handleSaveUrl = async () => {
     await saveSmartsheetUrl(url);
     await saveSmartsheetToken(smartsheetToken);
@@ -1029,15 +1035,18 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
     
     setImportError(false);
     setImportStatus('Linking Source...');
+    addSyncLog("Starting Smartsheet API Sync...");
     const result = await syncSitesFromRemote();
     const time = new Date().toLocaleTimeString();
     if (result.success) {
       setImportStatus(`[${time}] Linked! Synchronized ${result.count} locations.`);
       const meta = await getSiteMetadata();
       setMetadata(meta);
+      addSyncLog(`Sync Success: ${result.count} sites found.`);
     } else {
       setImportError(true);
       setImportStatus(`[${time}] Linked! Sync Issue: ${result.error}`);
+      addSyncLog(`Sync Failed: ${result.error}`);
     }
     setTimeout(() => { setImportStatus(null); setImportError(false); }, 5000);
   };
@@ -1045,14 +1054,17 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
   const handleManualSync = async () => {
     setImportError(false);
     setImportStatus('Synchronizing...');
+    addSyncLog("Manual sync initiated...");
     const result = await syncSitesFromRemote();
     if (result.success) {
       setImportStatus(`Success! Updated ${result.count} locations.`);
       const meta = await getSiteMetadata();
       setMetadata(meta);
+      addSyncLog(`Sync Success: ${result.count} sites found.`);
     } else {
       setImportError(true);
       setImportStatus(`Sync Failed: ${result.error}`);
+      addSyncLog(`Sync Failed: ${result.error}`);
     }
     setTimeout(() => { setImportStatus(null); setImportError(false); }, 6000);
   };
@@ -1545,6 +1557,25 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
                   Required if you cannot use the "Publish as CSV" feature. Token is found in Personal Settings &gt; API Access.
                 </p>
               </div>
+
+              {syncLogs.length > 0 && (
+                <div className="mt-4 p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-2">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <RefreshCw size={10} className="animate-spin" /> Sync Activity Log
+                  </p>
+                  <div className="space-y-1.5 pt-2">
+                    {syncLogs.map((log, i) => (
+                      <div key={i} className="flex gap-2 text-[9px] font-mono whitespace-normal break-all">
+                        <span className={cn(
+                          "w-1 h-1 rounded-full mt-1 flex-shrink-0",
+                          log.toLowerCase().includes('success') ? 'bg-teal-500' : log.toLowerCase().includes('failed') || log.toLowerCase().includes('issue') ? 'bg-red-500' : 'bg-blue-400'
+                        )} />
+                        <span className="text-slate-600">{log}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </section>

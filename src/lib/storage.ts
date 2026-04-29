@@ -267,16 +267,22 @@ export async function syncSitesFromRemote(): Promise<{ success: boolean; count: 
     const sheetId = url.split('/sheets/')[1]?.split('?')[0];
     if (sheetId) {
       try {
+        console.log(`[SYNC-DEBUG] Extracted Sheet ID: ${sheetId}`);
         const tryFetch = async (fetchUrl: string, options: any) => {
+          console.log(`[SYNC-DEBUG] Fetching ${fetchUrl} with options:`, JSON.stringify({ ...options, body: options.body ? 'PAYLOAD_HIDDEN' : undefined }));
           const resp = await fetch(fetchUrl, options);
-          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          if (!resp.ok) {
+            const errText = await resp.text().catch(() => 'No details');
+            console.error(`[SYNC-DEBUG] Fetch failed with ${resp.status}: ${errText}`);
+            throw new Error(`HTTP ${resp.status}: ${errText.substring(0, 50)}`);
+          }
           return await resp.json();
         };
 
         let sheetData;
         try {
-          const finalUrl = `/api/smartsheet-api-proxy?t=${Date.now()}`;
-          console.log("Sync: Calling API Proxy (POST)", finalUrl);
+          const finalUrl = `/api/smartsheet-api-proxy?sheetId=${sheetId}&t=${Date.now()}`;
+          console.log(`[SYNC-DEBUG] Attempting Proxy POST to ${finalUrl}`);
           sheetData = await tryFetch(finalUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -284,20 +290,39 @@ export async function syncSitesFromRemote(): Promise<{ success: boolean; count: 
             cache: 'no-store'
           });
         } catch (proxyErr: any) {
-          console.warn("Sync: Proxy failed, trying direct (might hit CORS)...", proxyErr.message);
-          // Last ditch attempt: Direct Smartsheet API (likely fails CORS but worth a shot for some environments)
-          sheetData = await tryFetch(`https://api.smartsheet.com/2.0/sheets/${sheetId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
+          console.warn("[SYNC-DEBUG] Proxy POST failed, trying Proxy GET...", proxyErr.message);
+          try {
+            const getUrl = `/api/smartsheet-api-proxy?sheetId=${sheetId}&token=${encodeURIComponent(token)}&t=${Date.now()}`;
+            sheetData = await tryFetch(getUrl, {
+              method: 'GET',
+              cache: 'no-store'
+            });
+          } catch (getErr: any) {
+            console.warn("[SYNC-DEBUG] Proxy GET failed, trying direct fetch...", getErr.message);
+            // Last ditch attempt: Direct Smartsheet API
+            sheetData = await tryFetch(`https://api.smartsheet.com/2.0/sheets/${sheetId}`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+          }
         }
         
+        console.log(`[SYNC-DEBUG] Received sheet data. Name: ${sheetData.name}, Rows: ${sheetData.rows?.length}`);
         const columns = sheetData.columns || [];
         const rows = sheetData.rows || [];
+        
+        if (rows.length === 0) {
+          console.warn("[SYNC-DEBUG] Sheet is empty!");
+          return { success: false, count: 0, error: "The Smartsheet appears to be empty." };
+        }
 
         const mapped: Site[] = rows.map((row: any) => {
           const getVal = (searchKeys: string[]) => {
             const col = columns.find((c: any) => 
-              searchKeys.some(sk => c.title.trim().toLowerCase().replace(/\s+/g, ' ') === sk.toLowerCase())
+              searchKeys.some(sk => {
+                const normalizedTitle = c.title?.trim().toLowerCase().replace(/\s+/g, ' ') || '';
+                const normalizedSK = sk.toLowerCase().trim();
+                return normalizedTitle === normalizedSK || normalizedTitle.includes(normalizedSK);
+              })
             );
             if (!col) return '';
             const cell = row.cells.find((c: any) => c.columnId === col.id);
@@ -305,11 +330,11 @@ export async function syncSitesFromRemote(): Promise<{ success: boolean; count: 
           };
 
           return {
-            storeNo: String(getVal(['Location ID', 'Store #', 'Site ID', 'Store Number', 'Site Number', 'ID', 'Location', 'Store No', 'Store', 'Site', 'Loc', 'Station ID', 'Station #', 'Location Number']) || '').trim(),
-            city: String(getVal(['City', 'Town', 'Location City', 'Municipality']) || '').trim(),
-            state: String(getVal(['State', 'Province', 'ST', 'Region']) || '').trim(),
-            streetAddress1: String(getVal(['Address', 'Street', 'Street Address', 'Address 1', 'Full Address', 'Location Address', 'Site Address']) || '').trim(),
-            zipcode: String(getVal(['Zip', 'Zipcode', 'Postal Code', 'Zip Code', 'PC']) || '').trim()
+            storeNo: String(getVal(['Location ID', 'Store #', 'Site ID', 'Store Number', 'Site Number', 'ID', 'Location', 'Store No', 'Store', 'Site', 'Loc', 'Station ID', 'Station #', 'Location Number', 'Store/Location']) || '').trim(),
+            city: String(getVal(['City', 'Town', 'Location City', 'Municipality', 'Shipping City']) || '').trim(),
+            state: String(getVal(['State', 'Province', 'ST', 'Region', 'Shipping State']) || '').trim(),
+            streetAddress1: String(getVal(['Address', 'Street', 'Street Address', 'Address 1', 'Full Address', 'Location Address', 'Site Address', 'Shipping Street']) || '').trim(),
+            zipcode: String(getVal(['Zip', 'Zipcode', 'Postal Code', 'Zip Code', 'PC', 'Shipping Zip']) || '').trim()
           };
         }).filter((s: Site) => s.storeNo);
 

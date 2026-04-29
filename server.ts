@@ -50,9 +50,22 @@ async function startServer() {
 
   // API Proxy Routes - explicitly handled
   const handleSmartsheetProxy = async (req: any, res: any) => {
-    console.log(`[SMARTSHEET-PROXY-START] ${req.method} ${req.url}`);
-    const sheetId = (req.method === 'POST' ? req.body.sheetId : req.query.sheetId) || req.params.sheetId;
-    const token = (req.method === 'POST' ? req.body.token : req.query.token) || req.headers['authorization']?.replace('Bearer ', '');
+    console.log(`[SMARTSHEET-PROXY-START] ${req.method} ${req.path}`);
+    
+    // Extract sheetId from multiple possible locations
+    let sheetId = req.params.sheetId || req.query.sheetId;
+    if (!sheetId && req.body && req.body.sheetId) {
+      sheetId = req.body.sheetId;
+    }
+    
+    // Extract token from multiple possible locations
+    let token = req.headers['authorization']?.replace('Bearer ', '');
+    if (!token && req.query.token) {
+      token = req.query.token;
+    }
+    if (!token && req.body && req.body.token) {
+      token = req.body.token;
+    }
 
     if (!sheetId || !token) {
       console.warn("[SMARTSHEET-PROXY-MISSING-CREDS]", { sheetId: !!sheetId, token: !!token });
