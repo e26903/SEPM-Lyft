@@ -979,8 +979,8 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
         });
         setDiagnostic({ 
           lastFail: err.message,
-          detail: `[v216.0] [API: ${window.location.origin}/api/health] ${err.message.includes('Got HTML') 
-            ? 'Backend routing mismatch: Server returned index.html instead of JSON. Ensure Vercel rewrites priority is correct and /api/index.ts is recognized.' 
+          detail: `[v217.0] [API: ${window.location.origin}/api/health] ${err.message.includes('Got HTML') 
+            ? 'Backend routing mismatch: Server returned index.html instead of JSON. Check the new simple rewrite order.' 
             : 'Unreachable. Response: ' + err.message + ' Env: ' + (window.location.hostname.includes('vercel') ? 'Vercel' : 'Cloud Run')}`
         });
       });
