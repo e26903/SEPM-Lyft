@@ -979,8 +979,8 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
         });
         setDiagnostic({ 
           lastFail: err.message,
-          detail: `[v217.0] [API: ${window.location.origin}/api/health] ${err.message.includes('Got HTML') 
-            ? 'Backend routing mismatch: Server returned index.html instead of JSON. Check the new simple rewrite order.' 
+          detail: `[v218.0] [API: ${window.location.origin}/api/health] ${err.message.includes('Got HTML') 
+            ? 'Backend routing mismatch: Server returned index.html instead of JSON. The sync mechanism will now attempt a direct CORS proxy bypass.' 
             : 'Unreachable. Response: ' + err.message + ' Env: ' + (window.location.hostname.includes('vercel') ? 'Vercel' : 'Cloud Run')}`
         });
       });

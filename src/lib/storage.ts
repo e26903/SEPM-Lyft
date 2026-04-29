@@ -428,19 +428,43 @@ export async function syncSitesFromRemote(): Promise<{ success: boolean; count: 
   // Fallback to CSV / Proxy fetch
   try {
     let csvData;
+    let fallbackToCorsProxy = false;
+    
     try {
       // Call our server-side proxy to bypass CORS with cache buster
       const proxyUrl = `/api/proxy-site-data?url=${encodeURIComponent(url)}&t=${Date.now()}`;
       console.log("Sync: Calling CSV Proxy", proxyUrl);
       const response = await fetch(proxyUrl, { cache: 'no-store' });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      csvData = await response.text();
+      
+      const contentType = response.headers.get("content-type") || "";
+      if (!response.ok || contentType.includes("text/html")) {
+        console.warn(`Sync: Backend proxy failed or returned HTML (${response.status}). Trying client-side CORS proxy...`);
+        fallbackToCorsProxy = true;
+      } else {
+        csvData = await response.text();
+      }
     } catch (proxyErr: any) {
-      console.warn("Sync: CSV Proxy failed, trying direct...", proxyErr.message);
-      const response = await fetch(url, { cache: 'no-store' });
-      if (!response.ok) throw new Error(`Direct Fetch Failed: ${response.status}`);
-      csvData = await response.text();
+      console.warn("Sync: CSV Proxy failed, trying direct/CORS proxy...", proxyErr.message);
+      fallbackToCorsProxy = true;
     }
+
+    if (fallbackToCorsProxy) {
+      try {
+        // Try a public CORS proxy as a last resort
+        const corsProxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+        console.log("Sync: Calling Public CORS Proxy", corsProxyUrl);
+        const response = await fetch(corsProxyUrl, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`CORS Proxy Failed: ${response.status}`);
+        csvData = await response.text();
+      } catch (corsErr: any) {
+        console.warn("Sync: CORS Proxy failed, trying direct (likely to fail CORS)...", corsErr.message);
+        const response = await fetch(url, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`Direct Fetch Failed: ${response.status}`);
+        csvData = await response.text();
+      }
+    }
+    
+    if (!csvData) throw new Error("Could not retrieve site data from any source.");
     
     return new Promise((resolve) => {
       Papa.parse(csvData, {

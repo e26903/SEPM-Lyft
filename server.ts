@@ -35,7 +35,7 @@ async function configureServer() {
   const healthReply = (req: any, res: any) => {
     res.json({ 
       status: "ok", 
-      v: "217.0", 
+      v: "218.0", 
       env: process.env.NODE_ENV,
       vercel: !!process.env.VERCEL,
       path: req.path,
@@ -109,6 +109,14 @@ async function configureServer() {
 
   // Mount API router
   app.use("/api", apiRouter);
+  app.use("/", (req, res, next) => {
+    // If the path starts with /api (already handled) or is /, let it pass
+    // Otherwise, check if it matches an apiRoute
+    if (req.path === '/ping' || req.path === '/health' || req.path === '/smartsheet-api-proxy' || req.path === '/proxy-site-data') {
+       return apiRouter(req, res, next);
+    }
+    next();
+  });
 
   // Fallback for missing API routes
   app.all('/api/*', (req, res) => {
