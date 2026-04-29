@@ -13,8 +13,9 @@ import fs from "fs";
 import { Dropbox } from "dropbox";
 import bodyParser from "body-parser";
 
-async function startServer() {
-  const app = express();
+const app = express();
+
+async function configureServer() {
   const PORT = 3000;
 
   app.set('trust proxy', true);
@@ -191,9 +192,20 @@ async function startServer() {
     res.status(500).json({ error: "Internal Server Error", message: err.message });
   });
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running at http://localhost:${PORT}`);
-  });
+  return app;
 }
 
-startServer();
+const serverPromise = configureServer().then(app => {
+  if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+    const PORT = 3000;
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running at http://localhost:${PORT}`);
+    });
+  }
+  return app;
+});
+
+export default async (req: any, res: any) => {
+  const app = await serverPromise;
+  return app(req, res);
+};
