@@ -32,23 +32,19 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-  const apiRouter = express.Router();
-
   // Health check routes
   const healthReply = (req: any, res: any) => {
+    console.log(`[API-HEALTH] Request from ${req.ip} to ${req.originalUrl}`);
     res.setHeader('Content-Type', 'application/json');
     res.json({ 
       status: "ok", 
-      v: "205.0", 
+      v: "206.0", 
       env: process.env.NODE_ENV,
-      p: req.path
+      p: req.path,
+      url: req.originalUrl,
+      proto: req.headers['x-forwarded-proto'] || 'unknown'
     });
   };
-
-  apiRouter.get("/health", healthReply);
-  apiRouter.get("/ping", healthReply);
-  apiRouter.get("/status", healthReply);
-  apiRouter.get("/diagnostic-test", (req, res) => res.json({ success: true, timestamp: Date.now() }));
 
   const handleSmartsheetProxy = async (req: any, res: any) => {
     console.log(`[PROXY] ${req.method} ${req.originalUrl}`);
@@ -59,27 +55,40 @@ async function startServer() {
     if (!token && req.body && req.body.token) token = req.body.token;
 
     if (!sheetId || !token) {
+      console.warn("[PROXY-ERR] Missing credentials for Smartsheet");
       return res.status(400).json({ error: "Missing Credentials" });
     }
 
     try {
+      console.log(`[PROXY-FETCH] Requesting Smartsheet for ID: ${sheetId}`);
       const response = await fetch(`https://api.smartsheet.com/2.0/sheets/${sheetId}`, {
         headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
       });
       if (!response.ok) {
         const text = await response.text();
+        console.error(`[PROXY-FETCH-ERR] Remote status: ${response.status}`);
         return res.status(response.status).json({ error: `Smartsheet ${response.status}`, details: text });
       }
-      res.json(await response.json());
+      const data = await response.json();
+      console.log(`[PROXY-FETCH-SUCCESS] Got ${data.rows?.length} rows`);
+      res.json(data);
     } catch (error: any) {
+      console.error(`[PROXY-EXCEPTION] ${error.message}`);
       res.status(500).json({ error: "Proxy Exception", details: error.message });
     }
   };
 
-  apiRouter.all("/smartsheet-api-proxy", handleSmartsheetProxy);
-  apiRouter.all("/smartsheet-api-proxy/:sheetId", handleSmartsheetProxy);
+  // Direct mounting instead of router for maximum reliability
+  app.get("/api/health", healthReply);
+  app.get("/api/ping", healthReply);
+  app.get("/api/status", healthReply);
+  app.get("/api/v2/test", (req, res) => res.json({ v: 2, env: process.env.NODE_ENV }));
 
-  apiRouter.post("/upload-to-dropbox", async (req: any, res: any) => {
+  app.all("/api/smartsheet-api-proxy", handleSmartsheetProxy);
+  app.all("/api/smartsheet-api-proxy/:sheetId", handleSmartsheetProxy);
+
+  app.post("/api/upload-to-dropbox", async (req: any, res: any) => {
+    console.log("[API-DROPBOX] Upload started");
     const { pdfBase64, fileName, accessToken } = req.body;
     if (!pdfBase64 || !fileName) return res.status(400).json({ error: "Missing data" });
     const token = accessToken || process.env.DROPBOX_ACCESS_TOKEN;
@@ -91,11 +100,13 @@ async function startServer() {
       await dbx.filesUpload({ path: `/${fileName}`, contents: buffer, mode: { '.tag': 'overwrite' } });
       res.json({ success: true });
     } catch (error: any) {
+      console.error("[API-DROPBOX-ERR]", error.message);
       res.status(500).json({ error: "Dropbox failed", details: error.message });
     }
   });
 
-  apiRouter.get("/proxy-site-data", async (req: any, res: any) => {
+  app.get("/api/proxy-site-data", async (req: any, res: any) => {
+    console.log("[API-PROXY-CSV] Fetch started");
     const { url } = req.query;
     if (!url || typeof url !== 'string') return res.status(400).json({ error: "Missing URL" });
     try {
@@ -103,14 +114,12 @@ async function startServer() {
       const data = await response.text();
       res.setHeader('Content-Type', 'text/csv').send(data);
     } catch (error: any) {
+      console.error("[API-PROXY-CSV-ERR]", error.message);
       res.status(500).json({ error: "Proxy failed", details: error.message });
     }
   });
 
-  // Explicitly mount API router BEFORE static/SPA logic
-  app.use("/api", apiRouter);
-
-  // Global Health Endpoints (Backup)
+  // Backup root health
   app.get("/api-health", healthReply);
   app.get("/health", healthReply);
   app.get("/ping", healthReply);

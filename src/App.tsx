@@ -979,9 +979,9 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
         });
         setDiagnostic({ 
           lastFail: err.message,
-          detail: err.message.includes('Got HTML') 
-            ? `API routes (/api/*) are being intercepted by the frontend. This version (205.0) uses absolute origin resolution which should fix this. Check if server.ts routing is correctly ordered.`
-            : `System connection failed. Check if the environment allows outgoing API calls or if the token is valid.`
+          detail: `[v206.0] [Origin: ${window.location.origin}] ${err.message.includes('Got HTML') 
+            ? 'The server returned HTML instead of JSON. This usually indicates an SPA fallback interception.' 
+            : 'Unreachable or invalid response. Check console logs for "Failed to fetch" details.'}`
         });
       });
   }, [isAdmin]);
