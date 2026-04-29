@@ -21,32 +21,26 @@ async function startServer() {
   app.set('strict routing', false);
   app.set('case sensitive routing', false);
 
-  // --- 1. THE "ULTIMATE" INTERCEPTOR ---
-  // This catches EVERYTHING before any other middleware or static serving
+  // Simplified Health Routes
+  const healthReply = (req: any, res: any) => {
+    res.json({ 
+      status: "ok", 
+      v: "200.0", 
+      time: new Date().toISOString(),
+      method: req.method,
+      path: req.path
+    });
+  };
+
+  app.get("/ping", healthReply);
+  app.get("/health", healthReply);
+  app.get("/api/health", healthReply);
+  app.get("/api/status", healthReply);
+  app.get("/api/v1/health-diagnostic", healthReply);
+
+  // --- 1. LOGGING MIDDLEWARE ---
   app.use((req, res, next) => {
-    const p = req.path.toLowerCase();
-    // Strict health paths only - exclude root "/" so the SPA can load
-    const isHealthPath = p.includes('health') || p.includes('ping') || p.includes('status') || p.includes('diagnostic');
-    
-    if (isHealthPath) {
-      console.log(`[HEALTH-REPLY] ${req.method} ${req.url} | Path: ${req.path}`);
-      return res.status(200).json({ 
-        status: "ok", 
-        v: "120.0", 
-        time: new Date().toISOString(),
-        env: process.env.NODE_ENV || 'development',
-        uptime: process.uptime(),
-        method: req.method,
-        query: req.query
-      });
-    }
-
-    if (p.startsWith('/api/')) {
-       console.log(`[API-ROUTING] ${req.method} ${req.url}`);
-       return next();
-    }
-
-    console.log(`[STATIC-ROUTING] ${req.method} ${req.url}`);
+    console.log(`[REQ] ${req.method} ${req.url}`);
     next();
   });
 

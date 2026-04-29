@@ -947,8 +947,9 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
         }
         
         if (contentType.includes("text/html")) {
-          console.warn(`[DIAGNOSTIC] ${endpoint} returned HTML instead of JSON`);
-          throw new Error(`${endpoint}: Got HTML (Static Fallback)`);
+          const sample = (await response.text()).substring(0, 40).replace(/</g, '[').replace(/>/g, ']');
+          console.warn(`[DIAGNOSTIC] ${endpoint} returned HTML instead of JSON: ${sample}`);
+          throw new Error(`${endpoint}: Got HTML [${sample}...] (Fallback)`);
         }
         
         const data = await response.json();
@@ -962,7 +963,8 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
       }
     };
 
-    tryHealth('/api/health')
+    tryHealth('/ping')
+      .catch(() => tryHealth('/api/health'))
       .catch(() => tryHealth('/health'))
       .catch(() => tryHealth('/debug-ping'))
       .catch(() => tryHealth('/api/v1/health-diagnostic'))
@@ -1425,9 +1427,18 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
               </div>
             </div>
             {!health?.status || health?.status !== 'ok' ? (
-              <div className="mt-4 p-4 bg-rose-50 rounded-2xl border border-rose-100">
-                <p className="text-[9px] text-rose-700 font-bold uppercase tracking-widest mb-1">Diagnostic Alert</p>
-                <p className="text-[9px] text-rose-600">The 404 error usually indicates that the deployment is still propagating or reserved paths are being intercepted by the host. The application has implemented automated path-finding to resolve this.</p>
+              <div className="space-y-3 mt-4">
+                <div className="p-4 bg-rose-50 rounded-2xl border border-rose-100">
+                  <p className="text-[9px] text-rose-700 font-bold uppercase tracking-widest mb-1">Diagnostic Alert</p>
+                  <p className="text-[9px] text-rose-600">The 404 error usually indicates that the deployment is still propagating or reserved paths are being intercepted by the host.</p>
+                </div>
+                <button
+                  id="bypass-health"
+                  onClick={() => setHealth({ status: 'ok', v: '200.0-bypass' })}
+                  className="w-full py-3 bg-slate-200 hover:bg-slate-300 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors"
+                >
+                  Force Manual Connection (Bypass)
+                </button>
               </div>
             ) : null}
           </div>
