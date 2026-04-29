@@ -340,8 +340,8 @@ export async function syncSitesFromRemote(): Promise<{ success: boolean; count: 
             }
             return await resp.json();
           } catch (fetchErr: any) {
-            console.error(`[SYNC-DEBUG] Fetch Exception for ${absoluteUrl}:`, fetchErr.message);
-            throw fetchErr;
+            console.error(`[SYNC-DEBUG] Fetch Exception for ${absoluteUrl}:`, fetchErr);
+            throw new Error(`Network Error: ${fetchErr.message}. Check console or possible timeout/CORS.`);
           }
         };
 

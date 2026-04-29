@@ -10,6 +10,14 @@
       "destination": "/api/health.ts"
     },
     {
+      "source": "/api/smartsheet-api-proxy",
+      "destination": "/api/smartsheet.ts"
+    },
+    {
+      "source": "/api/proxy-site-data",
+      "destination": "/api/csv-proxy.ts"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/index.ts"
     },

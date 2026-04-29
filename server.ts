@@ -40,7 +40,7 @@ async function configureServer() {
   const healthReply = (req: any, res: any) => {
     res.json({ 
       status: "ok", 
-      v: "219.1", 
+      v: "219.4", 
       env: process.env.NODE_ENV,
       vercel: !!process.env.VERCEL,
       path: req.path,
