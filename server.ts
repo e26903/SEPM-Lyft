@@ -19,25 +19,21 @@ async function startServer() {
 
   // --- ABSOLUTE TOP PRIORITY HEALTH CHECKS ---
   const healthCheck = (req: any, res: any) => {
-    console.log(`[HEALTH-CHECK-HIT] ${req.method} ${req.url} from ${req.ip}`);
+    console.log(`[HEALTH] ${req.method} ${req.url}`);
     res.status(200).json({ 
       status: "ok", 
-      v: "23.0", 
+      v: "30.0", 
       time: new Date().toISOString(),
-      env: process.env.NODE_ENV,
-      p: req.path,
-      m: req.method
+      env: process.env.NODE_ENV || 'development',
+      uptime: process.uptime()
     });
   };
 
-  app.all('/health', healthCheck);
-  app.all('/healthz', healthCheck);
-  app.all('/ping', healthCheck);
-  app.all('/status', healthCheck);
-  app.all('/status-check', healthCheck);
-  app.all('/api/v1/health-diagnostic', healthCheck);
-  app.all('/api/health', healthCheck);
-  app.all('/api/ping', healthCheck);
+  // Register these EXACTLY as requested by the frontend
+  ['/health', '/healthz', '/ping', '/status', '/api/health', '/api/ping', '/api/status', '/api/v1/health'].forEach(path => {
+    app.get(path, healthCheck);
+    app.head(path, healthCheck);
+  });
 
   // Essential settings
   app.set('trust proxy', true);
@@ -111,13 +107,19 @@ async function startServer() {
   // --- 5. STATIC FILES & PRODUCTION SERVING ---
   const publicPath = path.join(process.cwd(), 'public');
   const distPath = path.join(process.cwd(), 'dist');
+  const indexPath = path.join(distPath, 'index.html');
 
-  // Check if we have a production build
-  const isProduction = fs.existsSync(path.join(distPath, 'index.html'));
-  console.log(`[SERVER] Mode: ${isProduction ? 'Production' : 'Development'}`);
+  // Priority Mode Check: Only use production if dist/index.html is actually present
+  const hasDist = fs.existsSync(indexPath);
+  const isProductionMode = process.env.NODE_ENV === "production" && hasDist;
+  
+  console.log(`[BOOT] Mode: ${isProductionMode ? 'PRODUCTION' : 'DEVELOPMENT'}`);
+  if (!isProductionMode && !hasDist && process.env.NODE_ENV === "production") {
+    console.warn("[WARN] NODE_ENV is production but dist/index.html is missing! Falling back to dev/Vite.");
+  }
 
-  if (!isProduction) {
-    console.log("[SERVER] Starting Vite middleware...");
+  if (!isProductionMode) {
+    console.log("[BOOT] Starting Vite Middleware...");
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -125,24 +127,24 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    console.log("[SERVER] Serving static files from dist...");
-    app.use(express.static(distPath));
+    console.log("[BOOT] Serving Static Assets...");
+    app.use(express.static(distPath, { index: false }));
     if (fs.existsSync(publicPath)) {
-      app.use(express.static(publicPath));
+      app.use(express.static(publicPath, { index: false }));
     }
     
     app.get('*', (req, res) => {
-      const p = req.path.toLowerCase();
-      // Don't serve HTML for missing API or health routes
-      const isReserved = p.startsWith('/api') || 
-                        ['/health', '/healthz', '/ping', '/status', '/api/health', '/api/ping'].includes(p);
-      
-      if (isReserved) {
-        console.log(`[SERVER] 404 Fallback hitting for reserved route: ${req.path}`);
-        return res.status(404).json({ error: "Route not found", path: req.path });
+      // API routes should already be handled, but as a safety for trailing slashes or missed matches:
+      if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: "API Route Not Found", path: req.path });
       }
       
-      res.sendFile(path.join(distPath, 'index.html'));
+      res.sendFile(indexPath, (err) => {
+        if (err) {
+          console.error("[ERROR] Failed to send index.html:", err);
+          res.status(500).send("Server Error: Missing entry point");
+        }
+      });
     });
   }
 

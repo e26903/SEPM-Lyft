@@ -267,22 +267,30 @@ export async function syncSitesFromRemote(): Promise<{ success: boolean; count: 
     const sheetId = url.split('/sheets/')[1]?.split('?')[0];
     if (sheetId) {
       try {
-        const finalUrl = `/api/smartsheet-api-proxy?t=${Date.now()}`;
-        console.log("Sync: Calling API Proxy (POST)", finalUrl);
-        const response = await fetch(finalUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sheetId, token }),
-          cache: 'no-store'
-        });
+        const tryFetch = async (fetchUrl: string, options: any) => {
+          const resp = await fetch(fetchUrl, options);
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          return await resp.json();
+        };
 
-        if (!response.ok) {
-          console.error("Sync: API Proxy Failed", response.status, response.statusText);
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.details || `SEPM-BACKEND-FAIL: ${response.status}`);
+        let sheetData;
+        try {
+          const finalUrl = `/api/smartsheet-api-proxy?t=${Date.now()}`;
+          console.log("Sync: Calling API Proxy (POST)", finalUrl);
+          sheetData = await tryFetch(finalUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sheetId, token }),
+            cache: 'no-store'
+          });
+        } catch (proxyErr: any) {
+          console.warn("Sync: Proxy failed, trying direct (might hit CORS)...", proxyErr.message);
+          // Last ditch attempt: Direct Smartsheet API (likely fails CORS but worth a shot for some environments)
+          sheetData = await tryFetch(`https://api.smartsheet.com/2.0/sheets/${sheetId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
         }
         
-        const sheetData = await response.json();
         const columns = sheetData.columns || [];
         const rows = sheetData.rows || [];
 
@@ -320,17 +328,20 @@ export async function syncSitesFromRemote(): Promise<{ success: boolean; count: 
 
   // Fallback to CSV / Proxy fetch
   try {
-    // Call our server-side proxy to bypass CORS with cache buster
-    const finalUrl = `/api/proxy-site-data?url=${encodeURIComponent(url)}&t=${Date.now()}`;
-    console.log("Sync: Calling CSV Proxy", finalUrl);
-    const response = await fetch(finalUrl, { cache: 'no-store' });
-    if (!response.ok) {
-      console.error("Sync: CSV Proxy Failed", response.status, response.statusText);
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.details || `SEPM-BACKEND-FAIL: ${response.status}`);
+    let csvData;
+    try {
+      // Call our server-side proxy to bypass CORS with cache buster
+      const proxyUrl = `/api/proxy-site-data?url=${encodeURIComponent(url)}&t=${Date.now()}`;
+      console.log("Sync: Calling CSV Proxy", proxyUrl);
+      const response = await fetch(proxyUrl, { cache: 'no-store' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      csvData = await response.text();
+    } catch (proxyErr: any) {
+      console.warn("Sync: CSV Proxy failed, trying direct...", proxyErr.message);
+      const response = await fetch(url, { cache: 'no-store' });
+      if (!response.ok) throw new Error(`Direct Fetch Failed: ${response.status}`);
+      csvData = await response.text();
     }
-    
-    const csvData = await response.text();
     
     return new Promise((resolve) => {
       Papa.parse(csvData, {

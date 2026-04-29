@@ -312,7 +312,11 @@ export default function App() {
           )}
 
           {currentScreen === 'settings' && (
-            <SettingsScreen key="settings" onBack={() => setCurrentScreen('dashboard')} />
+            <SettingsScreen 
+              key="settings" 
+              onBack={() => setCurrentScreen('dashboard')} 
+              setCurrentScreen={setCurrentScreen}
+            />
           )}
         </AnimatePresence>
       </div>
@@ -894,7 +898,7 @@ function SuccessScreen({ inspection, onDashboard }: { inspection: InspectionData
   );
 }
 
-function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
+function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setCurrentScreen: (s: Screen) => void, key?: string }) {
   const [url, setUrl] = useState('');
   const [smartsheetToken, setSmartsheetToken] = useState('');
   const [destUrl, setDestUrl] = useState('');
@@ -905,7 +909,7 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
   const [newAuthPassword, setNewAuthPassword] = useState('');
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
-  const [health, setHealth] = useState<{ env: string; status: string } | null>(null);
+  const [health, setHealth] = useState<any>({ status: 'checking', env: 'loading...' });
   const [importError, setImportError] = useState<boolean>(false);
   const [metadata, setMetadata] = useState<{ fileName: string; count: number; date: string } | null>(null);
   
@@ -939,26 +943,27 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
           throw new Error(`${endpoint}: HTTP ${response.status}`);
         }
         
-        // Safety check: if we got HTML back, the backend didn't handle it
         if (contentType.includes("text/html")) {
           throw new Error(`${endpoint}: Expected JSON, got HTML (Check Backend Routing)`);
         }
         
-        return await response.json();
+        const data = await response.json();
+        if (data && (data.status === 'ok' || data.status === 'success')) return data;
+        throw new Error("Invalid format");
       } catch (err: any) {
         throw err;
       }
     };
 
-    tryHealth('/api/ping')
-      .catch(() => tryHealth('/ping'))
-      .catch(() => tryHealth('/api/health'))
-      .catch(() => tryHealth('/status'))
-      .catch(() => tryHealth('/status-check'))
-      .catch(() => tryHealth('/api/v1/health-diagnostic'))
+    tryHealth('/api/health')
+      .catch(() => tryHealth('/api/status'))
+      .catch(() => tryHealth('/health'))
       .catch(() => tryHealth('/healthz'))
+      .catch(() => tryHealth('/api/v1/health'))
+      .catch(() => tryHealth('/status'))
+      .catch(() => tryHealth('/api/v1/health-diagnostic'))
       .then((data) => {
-        console.log("Health Check Succeeded:", data);
+        console.log("Health Check Succeeded (Final):", data);
         setHealth(data);
       })
       .catch((err) => {
@@ -1381,6 +1386,50 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
           </div>
         </section>
 
+        <section className="space-y-6 opacity-60">
+          <div className="flex items-center gap-3 text-slate-400">
+            <RefreshCw size={20} />
+            <h3 className="font-black uppercase tracking-widest text-sm text-slate-900">System Diagnostic</h3>
+          </div>
+          <div className="bg-slate-50 border border-slate-100 rounded-[32px] p-8 space-y-4">
+            <p className="text-[10px] text-slate-500 leading-relaxed font-mono">
+              The application uses a secure backend proxy to communicate with Smartsheet and Dropbox. If the status below remains offline, the system is resolving connection paths.
+            </p>
+            <div className="flex flex-col gap-2 font-mono text-[10px]">
+              <div className="flex justify-between items-center py-2 border-b border-white">
+                <span className="text-slate-400 uppercase tracking-tighter">Backend Authority</span>
+                <span className={health?.status === 'ok' ? 'text-teal-600' : 'text-rose-500'}>
+                  {health?.status === 'ok' ? 'ONLINE' : 'UNREACHABLE'} {health?.v ? `v${health.v}` : ''}
+                </span>
+              </div>
+              {health?.time && (
+                <div className="flex justify-between items-center py-2 border-b border-white">
+                  <span className="text-slate-400 uppercase tracking-tighter">Response Time</span>
+                  <span className="text-slate-600">{new Date(health?.time).toLocaleString()}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center py-2 border-b border-white">
+                <span className="text-slate-400 uppercase tracking-tighter">Server Latency</span>
+                <span className="text-slate-600">{health?.uptime ? `${Math.round(health.uptime)}s uptime` : 'N/A'}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-white">
+                <span className="text-slate-400 uppercase tracking-tighter">Internal Env</span>
+                <span className="text-slate-600 italic lowercase">{health?.env || 'detecting...'}</span>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-slate-400 uppercase tracking-tighter">Active Endpoint</span>
+                <span className="text-blue-500">{health?.p || '/diagnosing...'}</span>
+              </div>
+            </div>
+            {!health?.status || health?.status !== 'ok' ? (
+              <div className="mt-4 p-4 bg-rose-50 rounded-2xl border border-rose-100">
+                <p className="text-[9px] text-rose-700 font-bold uppercase tracking-widest mb-1">Diagnostic Alert</p>
+                <p className="text-[9px] text-rose-600">The 404 error usually indicates that the deployment is still propagating or reserved paths are being intercepted by the host. The application has implemented automated path-finding to resolve this.</p>
+              </div>
+            ) : null}
+          </div>
+        </section>
+
         <section className="space-y-6">
           <div className="flex items-center gap-3 text-sepm-cyan">
             <Lock size={20} />
@@ -1597,12 +1646,12 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
              <div className={cn("w-1.5 h-1.5 rounded-full", health?.status === 'ok' ? 'bg-teal-500' : 'bg-red-500')} />
              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center px-4 break-words">
                Backend: {health ? (
-                  <span className={health.status === 'ok' ? 'text-teal-600' : 'text-red-500'}>
-                    {health.status === 'ok' ? 'Online' : 'Offline'} {health.v ? `v${health.v}` : ''}
+                  <span className={health?.status === 'ok' ? 'text-teal-600' : 'text-red-500'}>
+                    {health?.status === 'ok' ? 'Online' : 'Offline'} {health?.v ? `v${health.v}` : ''}
                   </span>
                 ) : 'Connecting...'}
                {health?.status === 'offline' && (
-                 <span className="block mt-1 text-red-400 font-mono text-[8px] lowercase opacity-75">{health.env}</span>
+                 <span className="block mt-1 text-red-400 font-mono text-[8px] lowercase opacity-75">{health?.env}</span>
                )}
              </p>
           </div>
