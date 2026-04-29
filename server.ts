@@ -29,8 +29,12 @@ async function startServer() {
   });
 
   // --- 2. API ROUTES (PRIORITY) ---
+  const cors = (await import("cors")).default;
+  app.use(cors());
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+  const apiRouter = express.Router();
 
   // Health check routes
   const healthReply = (req: any, res: any) => {
@@ -38,16 +42,17 @@ async function startServer() {
     res.setHeader('Content-Type', 'application/json');
     res.json({ 
       status: "ok", 
-      v: "207.0", 
+      v: "208.0", 
       env: process.env.NODE_ENV,
       p: req.path,
       url: req.originalUrl,
-      proto: req.headers['x-forwarded-proto'] || 'unknown'
+      proto: req.headers['x-forwarded-proto'] || 'unknown',
+      host: req.headers.host
     });
   };
 
   const handleSmartsheetProxy = async (req: any, res: any) => {
-    console.log(`[PROXY] ${req.method} ${req.originalUrl}`);
+    console.log(`[PROXY] ${req.method} ${req.originalUrl} - Body: ${!!req.body}`);
     let sheetId = req.params.sheetId || req.query.sheetId;
     if (!sheetId && req.body && req.body.sheetId) sheetId = req.body.sheetId;
     let token = req.headers['authorization']?.replace('Bearer ', '');
@@ -70,7 +75,7 @@ async function startServer() {
         return res.status(response.status).json({ error: `Smartsheet ${response.status}`, details: text });
       }
       const data = await response.json();
-      console.log(`[PROXY-FETCH-SUCCESS] Got ${data.rows?.length} rows`);
+      console.log(`[PROXY-FETCH-SUCCESS] Got data`);
       res.json(data);
     } catch (error: any) {
       console.error(`[PROXY-EXCEPTION] ${error.message}`);
@@ -78,16 +83,14 @@ async function startServer() {
     }
   };
 
-  // Direct mounting instead of router for maximum reliability
-  app.get("/api/health", healthReply);
-  app.get("/api/ping", healthReply);
-  app.get("/api/status", healthReply);
-  app.get("/api/v2/test", (req, res) => res.json({ v: 2, env: process.env.NODE_ENV }));
+  apiRouter.get("/health", healthReply);
+  apiRouter.get("/ping", healthReply);
+  apiRouter.get("/status", healthReply);
+  apiRouter.get("/v2/test", (req, res) => res.json({ v: 2, env: process.env.NODE_ENV }));
+  apiRouter.all("/smartsheet-api-proxy", handleSmartsheetProxy);
+  apiRouter.all("/smartsheet-api-proxy/:sheetId", handleSmartsheetProxy);
 
-  app.all("/api/smartsheet-api-proxy", handleSmartsheetProxy);
-  app.all("/api/smartsheet-api-proxy/:sheetId", handleSmartsheetProxy);
-
-  app.post("/api/upload-to-dropbox", async (req: any, res: any) => {
+  apiRouter.post("/upload-to-dropbox", async (req: any, res: any) => {
     console.log("[API-DROPBOX] Upload started");
     const { pdfBase64, fileName, accessToken } = req.body;
     if (!pdfBase64 || !fileName) return res.status(400).json({ error: "Missing data" });
@@ -105,7 +108,7 @@ async function startServer() {
     }
   });
 
-  app.get("/api/proxy-site-data", async (req: any, res: any) => {
+  apiRouter.get("/proxy-site-data", async (req: any, res: any) => {
     console.log("[API-PROXY-CSV] Fetch started");
     const { url } = req.query;
     if (!url || typeof url !== 'string') return res.status(400).json({ error: "Missing URL" });
@@ -119,10 +122,17 @@ async function startServer() {
     }
   });
 
+  // Explicitly mount API router
+  app.use("/api", apiRouter);
+
+  // Catch-all for /api requests that missed the above - return JSON 404, NOT index.html
+  app.all('/api/*', (req, res) => {
+    console.warn(`[API-MISS] No matching route for ${req.method} ${req.url}`);
+    res.status(404).json({ error: "API Route Not Found", path: req.url });
+  });
+
   // Backup root health
   app.get("/api-health", healthReply);
-  app.get("/health", healthReply);
-  app.get("/ping", healthReply);
 
   // --- 5. STATIC FILES & PRODUCTION SERVING ---
   const publicPath = path.join(process.cwd(), 'public');

@@ -269,9 +269,13 @@ export async function syncSitesFromRemote(): Promise<{ success: boolean; count: 
       try {
         console.log(`[SYNC-DEBUG] Extracted Sheet ID: ${sheetId}`);
         const tryFetch = async (fetchUrl: string, options: any) => {
-          console.log(`[SYNC-DEBUG] Fetching ${fetchUrl}...`);
+          // Use absolute URL to avoid potential relative path issues in iframes
+          const base = window.location.origin;
+          const absoluteUrl = fetchUrl.startsWith('http') ? fetchUrl : `${base}${fetchUrl.startsWith('/') ? '' : '/'}${fetchUrl}`;
+          
+          console.log(`[SYNC-DEBUG] Fetching ${absoluteUrl}...`);
           try {
-            const resp = await fetch(fetchUrl, options);
+            const resp = await fetch(absoluteUrl, options);
             if (!resp.ok) {
               const errText = await resp.text().catch(() => 'No details');
               console.error(`[SYNC-DEBUG] Fetch failed with ${resp.status}: ${errText}`);
@@ -280,12 +284,12 @@ export async function syncSitesFromRemote(): Promise<{ success: boolean; count: 
             const contentType = resp.headers.get("content-type") || "";
             if (contentType.includes("text/html")) {
                const sample = (await resp.text()).substring(0, 60);
-               console.error(`[SYNC-DEBUG] Expected JSON but got HTML for ${fetchUrl}: ${sample}`);
+               console.error(`[SYNC-DEBUG] Expected JSON but got HTML for ${absoluteUrl}: ${sample}`);
                throw new Error(`Server returned HTML instead of JSON (Possible Auth Redirect or SPA Fallback).`);
             }
             return await resp.json();
           } catch (fetchErr: any) {
-            console.error(`[SYNC-DEBUG] Fetch Exception for ${fetchUrl}:`, fetchErr.message);
+            console.error(`[SYNC-DEBUG] Fetch Exception for ${absoluteUrl}:`, fetchErr.message);
             throw fetchErr;
           }
         };

@@ -979,9 +979,9 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
         });
         setDiagnostic({ 
           lastFail: err.message,
-          detail: `[v207.0] [Origin: ${window.location.origin}] ${err.message.includes('Got HTML') 
-            ? 'The server returned HTML instead of JSON. This usually indicates an SPA fallback interception.' 
-            : 'Unreachable or invalid response. Check console logs for "Failed to fetch" details.'}`
+          detail: `[v208.0] [Origin: ${window.location.origin}] ${err.message.includes('Got HTML') 
+            ? 'The server returned HTML instead of JSON. This usually indicates an SPA fallback interception. Check if the /api routes are matching.' 
+            : 'Unreachable or invalid response. Check console logs for "Failed to fetch" details. Ensure no CORS blocks are active.'}`
         });
       });
   }, [isAdmin]);
