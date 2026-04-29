@@ -38,7 +38,7 @@ async function startServer() {
     res.setHeader('Content-Type', 'application/json');
     res.json({ 
       status: "ok", 
-      v: "206.0", 
+      v: "207.0", 
       env: process.env.NODE_ENV,
       p: req.path,
       url: req.originalUrl,

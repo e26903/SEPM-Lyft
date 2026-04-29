@@ -979,7 +979,7 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
         });
         setDiagnostic({ 
           lastFail: err.message,
-          detail: `[v206.0] [Origin: ${window.location.origin}] ${err.message.includes('Got HTML') 
+          detail: `[v207.0] [Origin: ${window.location.origin}] ${err.message.includes('Got HTML') 
             ? 'The server returned HTML instead of JSON. This usually indicates an SPA fallback interception.' 
             : 'Unreachable or invalid response. Check console logs for "Failed to fetch" details.'}`
         });
