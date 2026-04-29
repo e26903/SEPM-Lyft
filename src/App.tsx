@@ -954,13 +954,18 @@ function SettingsScreen({ onBack }: { onBack: () => void, key?: string }) {
       .catch(() => tryHealth('/ping'))
       .catch(() => tryHealth('/api/health'))
       .catch(() => tryHealth('/status'))
+      .catch(() => tryHealth('/status-check'))
+      .catch(() => tryHealth('/api/v1/health-diagnostic'))
       .catch(() => tryHealth('/healthz'))
-      .then(setHealth)
+      .then((data) => {
+        console.log("Health Check Succeeded:", data);
+        setHealth(data);
+      })
       .catch((err) => {
-        console.error("Health Check Failed:", err.message);
+        console.error("Critical Health Failure:", err);
         setHealth({ 
           status: 'offline', 
-          env: err.message.includes("HTML") ? "HTML Fallback Detected (Check Routing)" : `Err: ${err.message.substring(0, 40)}`
+          env: `Fail: ${err.message?.substring(0, 50) || 'Unknown Error'}`
         });
       });
   }, [isAdmin]);

@@ -18,11 +18,26 @@ async function startServer() {
   const PORT = 3000;
 
   // --- ABSOLUTE TOP PRIORITY HEALTH CHECKS ---
-  app.get('/health', (req, res) => res.status(200).send('OK'));
-  app.get('/healthz', (req, res) => res.status(200).send('OK'));
-  app.get('/ping', (req, res) => res.status(200).send('OK'));
-  app.get('/api/health', (req, res) => res.status(200).send('OK'));
-  app.get('/api/ping', (req, res) => res.status(200).send('OK'));
+  const healthCheck = (req: any, res: any) => {
+    console.log(`[HEALTH-CHECK-HIT] ${req.method} ${req.url} from ${req.ip}`);
+    res.status(200).json({ 
+      status: "ok", 
+      v: "23.0", 
+      time: new Date().toISOString(),
+      env: process.env.NODE_ENV,
+      p: req.path,
+      m: req.method
+    });
+  };
+
+  app.all('/health', healthCheck);
+  app.all('/healthz', healthCheck);
+  app.all('/ping', healthCheck);
+  app.all('/status', healthCheck);
+  app.all('/status-check', healthCheck);
+  app.all('/api/v1/health-diagnostic', healthCheck);
+  app.all('/api/health', healthCheck);
+  app.all('/api/ping', healthCheck);
 
   // Essential settings
   app.set('trust proxy', true);
@@ -117,15 +132,26 @@ async function startServer() {
     }
     
     app.get('*', (req, res) => {
-      // Don't serve HTML for missing API routes
-      if (req.path.startsWith('/api')) {
-        return res.status(404).json({ error: "Not Found" });
+      const p = req.path.toLowerCase();
+      // Don't serve HTML for missing API or health routes
+      const isReserved = p.startsWith('/api') || 
+                        ['/health', '/healthz', '/ping', '/status', '/api/health', '/api/ping'].includes(p);
+      
+      if (isReserved) {
+        console.log(`[SERVER] 404 Fallback hitting for reserved route: ${req.path}`);
+        return res.status(404).json({ error: "Route not found", path: req.path });
       }
+      
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
 
 
+
+  app.use((err: any, req: any, res: any, next: any) => {
+    console.error("[SERVER-ERROR]", err);
+    res.status(500).json({ error: "Internal Server Error", message: err.message });
+  });
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running at http://localhost:${PORT}`);
