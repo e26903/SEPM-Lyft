@@ -84,6 +84,12 @@ service cloud.firestore {
       allow write: if isAuthorized();
     }
 
+    // Site Management Rules
+    match /sites/{listId} {
+      allow read: if isAuthorized();
+      allow write: if isAuthorized() && isHardcodedAdmin();
+    }
+
     // User Management Rules
     match /authorized_users/{email} {
       allow read: if isSignedIn();

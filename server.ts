@@ -1,55 +1,50 @@
 import express from "express";
-console.log("[SERVER] Bootstrapping...");
-
-process.on('uncaughtException', (err) => {
-  console.error('[FATAL] Uncaught Exception:', err);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('[FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
-});
 import path from "path";
 import fs from "fs";
 import { Dropbox } from "dropbox";
-import bodyParser from "body-parser";
-
-const app = express();
 
 async function configureServer() {
-  const PORT = 3000;
-
+  const app = express();
+  
+  // Basic settings
   app.set('trust proxy', true);
-  app.set('strict routing', false);
-  app.set('case sensitive routing', false);
-
+  
   // --- 1. LOGGING MIDDLEWARE ---
   app.use((req, res, next) => {
-    // Only log API and main page requests to avoid log noise
-    if (req.url.startsWith('/api/') || req.url === '/') {
-      console.log(`[REQ] ${req.method} ${req.url}`);
+    // Immediate log for every request to /api
+    if (req.url.startsWith('/api')) {
+      console.log(`[SERVE] ${req.method} ${req.url}`);
     }
     next();
   });
 
-  // --- 2. API ROUTES ---
-  const cors = (await import("cors")).default;
-  app.use(cors());
+  // --- 2. CORS & PARSING ---
+  try {
+    const cors = (await import("cors")).default;
+    app.use(cors());
+  } catch (err) {
+    console.warn("CORS module not available, skipping...");
+  }
+  
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+  // --- 3. API ROUTES ---
   const apiRouter = express.Router();
 
   const healthReply = (req: any, res: any) => {
     res.json({ 
       status: "ok", 
-      v: "210.0", 
+      v: "212.0", 
       env: process.env.NODE_ENV,
-      p: req.path,
-      url: req.originalUrl,
+      vercel: !!process.env.VERCEL,
+      path: req.path,
+      url: req.url,
       host: req.headers.host
     });
   };
 
+  // SMARTSHEET PROXY
   const handleSmartsheetProxy = async (req: any, res: any) => {
     let sheetId = req.params.sheetId || req.query.sheetId;
     if (!sheetId && req.body && req.body.sheetId) sheetId = req.body.sheetId;
@@ -76,16 +71,17 @@ async function configureServer() {
     }
   };
 
-  apiRouter.get("/health", healthReply);
   apiRouter.get("/ping", healthReply);
+  apiRouter.get("/health", healthReply);
   apiRouter.all("/smartsheet-api-proxy", handleSmartsheetProxy);
   apiRouter.all("/smartsheet-api-proxy/:sheetId", handleSmartsheetProxy);
 
+  // DROPBOX UPLOAD
   apiRouter.post("/upload-to-dropbox", async (req: any, res: any) => {
     const { pdfBase64, fileName, accessToken } = req.body;
     if (!pdfBase64 || !fileName) return res.status(400).json({ error: "Missing data" });
     const token = accessToken || process.env.DROPBOX_ACCESS_TOKEN;
-    if (!token) return res.status(401).json({ error: "No token" });
+    if (!token) return res.status(401).json({ error: "Missing token" });
 
     try {
       const dbx = new Dropbox({ accessToken: token });
@@ -97,6 +93,7 @@ async function configureServer() {
     }
   });
 
+  // SITE DATA PROXY
   apiRouter.get("/proxy-site-data", async (req: any, res: any) => {
     const { url } = req.query;
     if (!url || typeof url !== 'string') return res.status(400).json({ error: "Missing URL" });
@@ -109,61 +106,58 @@ async function configureServer() {
     }
   });
 
+  // Mount API router
   app.use("/api", apiRouter);
 
-  // Fallback for API
+  // Fallback for missing API routes
   app.all('/api/*', (req, res) => {
-    res.status(404).json({ error: "API Route Not Found", path: req.url });
+    res.status(404).json({ error: "API Route Not Found", path: req.path, url: req.url });
   });
 
-  // --- 3. STATIC FILES & SPA FALLBACK ---
-  const distPath = path.join(process.cwd(), 'dist');
-  const hasDist = fs.existsSync(path.join(distPath, 'index.html'));
+  // --- 4. STATIC FILES & SPA FALLBACK (FOR NON-VERCEL DEPLOYMENTS) ---
+  if (!process.env.VERCEL) {
+    const distPath = path.join(process.cwd(), 'dist');
+    const hasDist = fs.existsSync(path.join(distPath, 'index.html'));
 
-  if (process.env.NODE_ENV === "production" && hasDist) {
-    console.log("[BOOT] Production mode: Serving dist/ as static");
-    app.use(express.static(distPath, { index: false }));
-    app.get('*', (req, res, next) => {
-      // Don't intercept API calls here if they missed the router
-      if (req.path.startsWith('/api/')) return next(); 
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-  } else if (!process.env.VERCEL) {
-    // In dev or non-Vercel environment where dist is missing
-    console.log("[BOOT] Development mode: Starting Vite Middleware...");
-    const { createServer: createViteServer } = await import("vite");
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
+    if (process.env.NODE_ENV === "production" && hasDist) {
+      app.use(express.static(distPath, { index: false }));
+      app.get('*', (req, res, next) => {
+        if (req.path.startsWith('/api/')) return next();
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    } else {
+      const { createServer: createViteServer } = await import("vite");
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+    }
   }
 
   return app;
 }
 
-// Global instance for reuse
-let serverApp: any = null;
-
-async function getServer() {
-  if (!serverApp) {
-    serverApp = await configureServer();
-  }
-  return serverApp;
+// Singleton pattern for the server instance
+let serverInstance: any = null;
+async function getInstance() {
+  if (!serverInstance) serverInstance = await configureServer();
+  return serverInstance;
 }
 
-// Non-blocking start for dev server
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-  getServer().then(app => {
-    const PORT = process.env.PORT || 3000;
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running at http://localhost:${PORT}`);
+// Development server start
+if (!process.env.VERCEL) {
+  getInstance().then(app => {
+    const port = process.env.PORT || 3000;
+    app.listen(port, "0.0.0.0", () => {
+      console.log(`[SERVER] Running on http://localhost:${port}`);
     });
   });
 }
 
-// Export for Vercel
+// Vercel entry point
 export default async (req: any, res: any) => {
-  const app = await getServer();
+  const app = await getInstance();
   return app(req, res);
 };
+
