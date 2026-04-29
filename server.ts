@@ -17,42 +17,47 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // --- ABSOLUTE TOP PRIORITY HEALTH CHECKS ---
-  const healthCheck = (req: any, res: any) => {
-    console.log(`[HEALTH] ${req.method} ${req.url}`);
-    res.status(200).json({ 
-      status: "ok", 
-      v: "30.0", 
-      time: new Date().toISOString(),
-      env: process.env.NODE_ENV || 'development',
-      uptime: process.uptime()
-    });
-  };
-
-  // Register these EXACTLY as requested by the frontend
-  ['/health', '/healthz', '/ping', '/status', '/api/health', '/api/ping', '/api/status', '/api/v1/health'].forEach(path => {
-    app.get(path, healthCheck);
-    app.head(path, healthCheck);
-  });
-
-  // Essential settings
   app.set('trust proxy', true);
   app.set('strict routing', false);
   app.set('case sensitive routing', false);
 
   // --- 1. GLOBAL LOGGING ---
   app.use((req, res, next) => {
-    console.log(`[REQ] ${req.method} ${req.url}`);
+    console.log(`[REQ] ${req.method} ${req.url} (IP: ${req.ip})`);
     next();
   });
 
-  // --- 3. MIDDLEWARE ---
+  // --- 2. MIDDLEWARE ---
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-  // --- 4. API HUB ---
-  app.all("/api/smartsheet-api-proxy", async (req, res) => {
-    console.log(`[API-PROXY] ${req.method} request received`);
+  // --- 3. ABSOLUTE TOP PRIORITY HEALTH & API ROUTES ---
+  const healthCheck = (req: any, res: any) => {
+    console.log(`[HEALTH-HIT] ${req.method} ${req.url}`);
+    res.status(200).json({ 
+      status: "ok", 
+      v: "50.0", 
+      time: new Date().toISOString(),
+      env: process.env.NODE_ENV || 'development',
+      uptime: process.uptime()
+    });
+  };
+
+  // Register all variations of health checks
+  const healthPaths = [
+    '/health', '/healthz', '/ping', '/status', 
+    '/api/health', '/api/ping', '/api/status', '/api/v1/health',
+    '/api/v1/health-diagnostic'
+  ];
+  
+  healthPaths.forEach(p => {
+    app.get(p, healthCheck);
+    app.head(p, healthCheck);
+  });
+
+  // API Proxy Routes
+  app.all("/api/smartsheet-api-proxy", async (req: any, res: any) => {
+    console.log(`[API-PROXY] ${req.method} Smartsheet: ${req.url}`);
     const sheetId = req.method === 'POST' ? req.body.sheetId : req.query.sheetId;
     const token = req.method === 'POST' ? req.body.token : req.query.token;
 
@@ -66,16 +71,18 @@ async function startServer() {
       });
       if (!response.ok) {
         const text = await response.text();
-        return res.status(response.status).json({ error: `Smartsheet Error: ${response.status}`, details: text });
+        return res.status(response.status).json({ error: `Smartsheet API: ${response.status}`, details: text });
       }
       const data = await response.json();
       res.json(data);
     } catch (error: any) {
+      console.error("[API-PROXY-ERROR]", error);
       res.status(500).json({ error: "Proxy failed", details: error.message });
     }
   });
 
-  app.post("/api/upload-to-dropbox", async (req, res) => {
+  app.post("/api/upload-to-dropbox", async (req: any, res: any) => {
+    console.log("[API] Dropbox Upload requested");
     const { pdfBase64, fileName, accessToken } = req.body;
     if (!pdfBase64 || !fileName) return res.status(400).json({ error: "Missing data" });
     const token = accessToken || process.env.DROPBOX_ACCESS_TOKEN;
@@ -87,11 +94,13 @@ async function startServer() {
       await dbx.filesUpload({ path: `/${fileName}`, contents: buffer, mode: { '.tag': 'overwrite' } });
       res.json({ success: true });
     } catch (error: any) {
+      console.error("[API-DROPBOX-ERROR]", error);
       res.status(500).json({ error: "Dropbox failed", details: error.message });
     }
   });
 
-  app.get("/api/proxy-site-data", async (req, res) => {
+  app.get("/api/proxy-site-data", async (req: any, res: any) => {
+    console.log("[API] Proxy Site Data requested");
     const { url } = req.query;
     if (!url || typeof url !== 'string') return res.status(400).json({ error: "Missing URL" });
     try {
@@ -100,6 +109,7 @@ async function startServer() {
       res.setHeader('Content-Type', 'text/csv');
       res.send(data);
     } catch (error: any) {
+      console.error("[API-SITE-ERROR]", error);
       res.status(500).json({ error: "Proxy failed", details: error.message });
     }
   });
