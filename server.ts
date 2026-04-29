@@ -35,7 +35,7 @@ async function configureServer() {
   const healthReply = (req: any, res: any) => {
     res.json({ 
       status: "ok", 
-      v: "212.0", 
+      v: "213.0", 
       env: process.env.NODE_ENV,
       vercel: !!process.env.VERCEL,
       path: req.path,
@@ -157,6 +157,9 @@ if (!process.env.VERCEL) {
 
 // Vercel entry point
 export default async (req: any, res: any) => {
+  if (process.env.VERCEL) {
+    console.log(`[VERCEL] Incoming ${req.method} ${req.url}`);
+  }
   const app = await getInstance();
   return app(req, res);
 };
