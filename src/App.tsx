@@ -963,11 +963,11 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
       }
     };
 
-    tryHealth('/ping')
-      .catch(() => tryHealth('/api/health'))
+    tryHealth('/api/health')
+      .catch(() => tryHealth('/api/ping'))
+      .catch(() => tryHealth('/api/v2/test'))
+      .catch(() => tryHealth('/ping'))
       .catch(() => tryHealth('/health'))
-      .catch(() => tryHealth('/debug-ping'))
-      .catch(() => tryHealth('/api/v1/health-diagnostic'))
       .catch(() => tryHealth('/'))
       .then((data) => {
         setHealth(data);
@@ -979,7 +979,9 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
         });
         setDiagnostic({ 
           lastFail: err.message,
-          detail: 'If this says "Got HTML", the API routes are being blocked by the frontend fallback. Check server.ts routing.'
+          detail: err.message.includes('Got HTML') 
+            ? `The server returned index.html for an API route. This means the SPA fallback is intercepting /api requests. Possible cause: routing order in server.ts.`
+            : `Backend is unreachable or returned invalid response.`
         });
       });
   }, [isAdmin]);

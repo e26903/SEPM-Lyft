@@ -27,6 +27,10 @@ async function startServer() {
     next();
   });
 
+  // --- MIDDLEWARE ---
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
   // Simplified Health Routes
   const healthReply = (req: any, res: any) => {
     console.log(`[HEALTH-REPLY] Sending JSON for ${req.path}`);
@@ -40,59 +44,33 @@ async function startServer() {
     }));
   };
 
-  app.get("/ping", healthReply);
-  app.get("/health", healthReply);
-  app.get("/api/ping", healthReply);
-  app.get("/api/health", healthReply);
-  app.get("/api/status", healthReply);
-  app.get("/api/v1/health-diagnostic", healthReply);
-  app.get("/api/diagnostic-check", healthReply);
-
-  // --- 2. MIDDLEWARE ---
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-  // Priority: API Router
+  // --- 2. BOTTOM LEVEL API ROUTES ---
   const handleSmartsheetProxy = async (req: any, res: any) => {
-    console.log(`[SMARTSHEET-PROXY-START] ${req.method} ${req.path}`);
+    console.log(`[PROXY-API] ${req.method} ${req.originalUrl}`);
     
-    // Extract sheetId from multiple possible locations
     let sheetId = req.params.sheetId || req.query.sheetId;
-    if (!sheetId && req.body && req.body.sheetId) {
-      sheetId = req.body.sheetId;
-    }
+    if (!sheetId && req.body && req.body.sheetId) sheetId = req.body.sheetId;
     
-    // Extract token from multiple possible locations
     let token = req.headers['authorization']?.replace('Bearer ', '');
-    if (!token && req.query.token) {
-      token = req.query.token;
-    }
-    if (!token && req.body && req.body.token) {
-      token = req.body.token;
-    }
+    if (!token && req.query.token) token = req.query.token;
+    if (!token && req.body && req.body.token) token = req.body.token;
 
     if (!sheetId || !token) {
-      console.warn("[SMARTSHEET-PROXY-MISSING-CREDS]", { sheetId: !!sheetId, token: !!token });
-      return res.status(400).json({ error: "Missing Credentials (SheetId/Token)" });
+      console.warn("[PROXY-CREDS-MISSING]", { sheetId: !!sheetId, token: !!token });
+      return res.status(400).json({ error: "Missing Credentials" });
     }
 
     try {
-      console.log(`[SMARTSHEET-PROXY-FETCHING] Sheet: ${sheetId}`);
       const response = await fetch(`https://api.smartsheet.com/2.0/sheets/${sheetId}`, {
         headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
       });
-      console.log(`[SMARTSHEET-PROXY-GOT-RESPONSE] Status: ${response.status}`);
       if (!response.ok) {
         const text = await response.text();
-        console.error(`[SMARTSHEET-PROXY-REMOTE-ERROR] ${response.status}: ${text.substring(0, 100)}`);
-        return res.status(response.status).json({ error: `Smartsheet API: ${response.status}`, details: text });
+        return res.status(response.status).json({ error: `Smartsheet ${response.status}`, details: text });
       }
-      const data = await response.json();
-      console.log(`[SMARTSHEET-PROXY-SUCCESS] Returning JSON`);
-      res.json(data);
+      res.json(await response.json());
     } catch (error: any) {
-      console.error("[SMARTSHEET-PROXY-EXCEPTION]", error);
-      res.status(500).json({ error: "Proxy failed", details: error.message });
+      res.status(500).json({ error: "Proxy Exception", details: error.message });
     }
   };
 
@@ -101,13 +79,12 @@ async function startServer() {
   apiRouter.get("/health", healthReply);
   apiRouter.get("/ping", healthReply);
   apiRouter.get("/status", healthReply);
-  apiRouter.get("/diagnostic-check", healthReply);
-
+  apiRouter.get("/v2/test", (req, res) => res.json({ v: 2, env: process.env.NODE_ENV }));
+  
   apiRouter.all("/smartsheet-api-proxy", handleSmartsheetProxy);
   apiRouter.all("/smartsheet-api-proxy/:sheetId", handleSmartsheetProxy);
 
   apiRouter.post("/upload-to-dropbox", async (req: any, res: any) => {
-    console.log("[API] Dropbox Upload requested");
     const { pdfBase64, fileName, accessToken } = req.body;
     if (!pdfBase64 || !fileName) return res.status(400).json({ error: "Missing data" });
     const token = accessToken || process.env.DROPBOX_ACCESS_TOKEN;
@@ -119,27 +96,29 @@ async function startServer() {
       await dbx.filesUpload({ path: `/${fileName}`, contents: buffer, mode: { '.tag': 'overwrite' } });
       res.json({ success: true });
     } catch (error: any) {
-      console.error("[API-DROPBOX-ERROR]", error);
       res.status(500).json({ error: "Dropbox failed", details: error.message });
     }
   });
 
   apiRouter.get("/proxy-site-data", async (req: any, res: any) => {
-    console.log("[API] Proxy Site Data requested");
     const { url } = req.query;
     if (!url || typeof url !== 'string') return res.status(400).json({ error: "Missing URL" });
     try {
       const response = await fetch(url);
       const data = await response.text();
-      res.setHeader('Content-Type', 'text/csv');
-      res.send(data);
+      res.setHeader('Content-Type', 'text/csv').send(data);
     } catch (error: any) {
-      console.error("[API-SITE-ERROR]", error);
       res.status(500).json({ error: "Proxy failed", details: error.message });
     }
   });
 
+  // Explicitly mount API router BEFORE static/SPA logic
   app.use("/api", apiRouter);
+
+  // Global Health Endpoints (Backup)
+  app.get("/api-health", healthReply);
+  app.get("/health", healthReply);
+  app.get("/ping", healthReply);
 
   // --- 5. STATIC FILES & PRODUCTION SERVING ---
   const publicPath = path.join(process.cwd(), 'public');
@@ -148,6 +127,12 @@ async function startServer() {
 
   // Priority Mode Check: Only use production if dist/index.html is actually present
   const hasDist = fs.existsSync(indexPath);
+  if (!hasDist && process.env.NODE_ENV === "production") {
+    console.error(`[BOOT-CRITICAL] Dist folder missing at ${distPath}! Listing parent:`);
+    try {
+      console.log(`[BOOT-LS] ${process.cwd()}: ${fs.readdirSync(process.cwd()).join(', ')}`);
+    } catch {}
+  }
   const isProductionMode = process.env.NODE_ENV === "production" && hasDist;
   
   console.log(`[BOOT] Mode: ${isProductionMode ? 'PRODUCTION' : 'DEVELOPMENT'}`);
