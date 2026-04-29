@@ -935,50 +935,45 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
     // Diagnostic Health Check Attempt
     const timestamp = Date.now();
     const tryHealth = async (endpoint: string) => {
+      const url = `${endpoint}${endpoint.includes('?') ? '&' : '?'}t=${Date.now()}`;
       try {
-        const response = await fetch(`${endpoint}?_=${timestamp}`);
+        console.log(`[DIAGNOSTIC] Probing ${url}...`);
+        const response = await fetch(url);
         const contentType = response.headers.get("content-type") || "";
         
         if (!response.ok) {
+          console.warn(`[DIAGNOSTIC] ${endpoint} failed with ${response.status}`);
           throw new Error(`${endpoint}: HTTP ${response.status}`);
         }
         
         if (contentType.includes("text/html")) {
-          throw new Error(`${endpoint}: Expected JSON, got HTML (Check Backend Routing)`);
+          console.warn(`[DIAGNOSTIC] ${endpoint} returned HTML instead of JSON`);
+          throw new Error(`${endpoint}: Got HTML (Static Fallback)`);
         }
         
-        let data;
-        if (contentType.includes("application/json")) {
-           data = await response.json();
-           if (data && (data.status === 'ok' || data.status === 'success')) return data;
-        } else {
-           const text = await response.text();
-           if (text.includes("PONG")) return { status: 'ok', v: text, env: 'debug-pong' };
-        }
+        const data = await response.json();
+        console.log(`[DIAGNOSTIC] ${endpoint} SUCCESS:`, data);
+        if (data && (data.status === 'ok' || data.status === 'success')) return data;
         
-        throw new Error("Invalid format");
+        throw new Error(`${endpoint}: Invalid JSON format`);
       } catch (err: any) {
+        console.error(`[DIAGNOSTIC] ${endpoint} error:`, err.message);
         throw err;
       }
     };
 
     tryHealth('/api/health')
-      .catch(() => tryHealth('/api/status'))
       .catch(() => tryHealth('/health'))
-      .catch(() => tryHealth('/healthz'))
       .catch(() => tryHealth('/debug-ping'))
-      .catch(() => tryHealth('/api/v1/health'))
-      .catch(() => tryHealth('/status'))
       .catch(() => tryHealth('/api/v1/health-diagnostic'))
+      .catch(() => tryHealth('/'))
       .then((data) => {
-        console.log("Health Check Succeeded (Final):", data);
         setHealth(data);
       })
       .catch((err) => {
-        console.error("Critical Health Failure:", err);
         setHealth({ 
           status: 'offline', 
-          env: `Fail: ${err.message?.substring(0, 50) || 'Unknown Error'}`
+          env: `Fail: ${err.message}`
         });
       });
   }, [isAdmin]);

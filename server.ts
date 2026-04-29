@@ -21,31 +21,32 @@ async function startServer() {
   app.set('strict routing', false);
   app.set('case sensitive routing', false);
 
-  // --- 1. GLOBAL LOGGING & EARLY INTERCEPTORS ---
+  // --- 1. THE "ULTIMATE" INTERCEPTOR ---
+  // This catches EVERYTHING before any other middleware or static serving
   app.use((req, res, next) => {
-    const lowUrl = req.url.toLowerCase();
+    const p = req.path.toLowerCase();
+    // Strict health paths only - exclude root "/" so the SPA can load
+    const isHealthPath = p.includes('health') || p.includes('ping') || p.includes('status') || p.includes('diagnostic');
     
-    // Aggressive Catch-All for Health/Ping/Status
-    if (lowUrl.includes('health') || lowUrl.includes('ping') || lowUrl.includes('status') || lowUrl.includes('debug-ping')) {
-      console.log(`[TOP-PRIORITY-HEALTH] ${req.method} ${req.url}`);
+    if (isHealthPath) {
+      console.log(`[HEALTH-REPLY] ${req.method} ${req.url} | Path: ${req.path}`);
       return res.status(200).json({ 
         status: "ok", 
-        v: "90.0", 
+        v: "120.0", 
         time: new Date().toISOString(),
         env: process.env.NODE_ENV || 'development',
         uptime: process.uptime(),
-        path: req.path,
-        originalUrl: req.originalUrl
+        method: req.method,
+        query: req.query
       });
     }
 
-    // Early Intercept for Smartsheet Proxy to avoid middleware issues
-    if (lowUrl.startsWith('/api/smartsheet-api-proxy')) {
-       console.log(`[TOP-PRIORITY-PROXY] ${req.method} ${req.url}`);
-       return next(); // Continue to the specific handler, but logging we caught it early
+    if (p.startsWith('/api/')) {
+       console.log(`[API-ROUTING] ${req.method} ${req.url}`);
+       return next();
     }
 
-    console.log(`[REQ] ${req.method} ${req.url} (IP: ${req.ip})`);
+    console.log(`[STATIC-ROUTING] ${req.method} ${req.url}`);
     next();
   });
 
@@ -55,27 +56,31 @@ async function startServer() {
 
   // API Proxy Routes - explicitly handled
   const handleSmartsheetProxy = async (req: any, res: any) => {
-    console.log(`[API-PROXY] Smartsheet: ${req.method} ${req.url}`);
+    console.log(`[SMARTSHEET-PROXY-START] ${req.method} ${req.url}`);
     const sheetId = (req.method === 'POST' ? req.body.sheetId : req.query.sheetId) || req.params.sheetId;
     const token = (req.method === 'POST' ? req.body.token : req.query.token) || req.headers['authorization']?.replace('Bearer ', '');
 
     if (!sheetId || !token) {
-      console.warn("[API-PROXY] Missing Credentials", { sheetId: !!sheetId, token: !!token });
+      console.warn("[SMARTSHEET-PROXY-MISSING-CREDS]", { sheetId: !!sheetId, token: !!token });
       return res.status(400).json({ error: "Missing Credentials (SheetId/Token)" });
     }
 
     try {
+      console.log(`[SMARTSHEET-PROXY-FETCHING] Sheet: ${sheetId}`);
       const response = await fetch(`https://api.smartsheet.com/2.0/sheets/${sheetId}`, {
         headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
       });
+      console.log(`[SMARTSHEET-PROXY-GOT-RESPONSE] Status: ${response.status}`);
       if (!response.ok) {
         const text = await response.text();
+        console.error(`[SMARTSHEET-PROXY-REMOTE-ERROR] ${response.status}: ${text.substring(0, 100)}`);
         return res.status(response.status).json({ error: `Smartsheet API: ${response.status}`, details: text });
       }
       const data = await response.json();
+      console.log(`[SMARTSHEET-PROXY-SUCCESS] Returning JSON`);
       res.json(data);
     } catch (error: any) {
-      console.error("[API-PROXY-ERROR]", error);
+      console.error("[SMARTSHEET-PROXY-EXCEPTION]", error);
       res.status(500).json({ error: "Proxy failed", details: error.message });
     }
   };
