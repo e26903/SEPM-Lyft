@@ -310,33 +310,41 @@ export async function syncSitesFromRemote(): Promise<{ success: boolean; count: 
         const columns = sheetData.columns || [];
         const rows = sheetData.rows || [];
         
+        console.log(`[SYNC-DEBUG] Columns: ${columns.map((c: any) => c.title).join(', ')}`);
+
         if (rows.length === 0) {
           console.warn("[SYNC-DEBUG] Sheet is empty!");
           return { success: false, count: 0, error: "The Smartsheet appears to be empty." };
         }
 
-        const mapped: Site[] = rows.map((row: any) => {
+        const mapped: Site[] = rows.map((row: any, rowIndex: number) => {
           const getVal = (searchKeys: string[]) => {
             const col = columns.find((c: any) => 
               searchKeys.some(sk => {
-                const normalizedTitle = c.title?.trim().toLowerCase().replace(/\s+/g, ' ') || '';
-                const normalizedSK = sk.toLowerCase().trim();
-                return normalizedTitle === normalizedSK || normalizedTitle.includes(normalizedSK);
+                const title = (c.title || '').trim().toLowerCase().replace(/\s+/g, ' ');
+                const search = sk.toLowerCase().trim();
+                return title === search || title.includes(search);
               })
             );
             if (!col) return '';
             const cell = row.cells.find((c: any) => c.columnId === col.id);
-            return cell?.displayValue || cell?.value || '';
+            const val = cell?.displayValue || cell?.value || '';
+            if (rowIndex < 5) console.log(`[SYNC-DEBUG] Row ${rowIndex} | ${col.title} -> ${val}`);
+            return val;
           };
 
+          const sNo = String(getVal(['Location ID', 'Store #', 'Site ID', 'Store Number', 'Site Number', 'ID', 'Location', 'Store No', 'Store', 'Site', 'Loc', 'Station ID', 'Station #', 'Location Number', 'Store/Location', 'STN', 'Unit', 'Stn #', 'Loc #']) || '').trim();
+
           return {
-            storeNo: String(getVal(['Location ID', 'Store #', 'Site ID', 'Store Number', 'Site Number', 'ID', 'Location', 'Store No', 'Store', 'Site', 'Loc', 'Station ID', 'Station #', 'Location Number', 'Store/Location']) || '').trim(),
-            city: String(getVal(['City', 'Town', 'Location City', 'Municipality', 'Shipping City']) || '').trim(),
+            storeNo: sNo,
+            city: String(getVal(['City', 'Town', 'Location City', 'Municipality', 'Shipping City', 'Dist']) || '').trim(),
             state: String(getVal(['State', 'Province', 'ST', 'Region', 'Shipping State']) || '').trim(),
             streetAddress1: String(getVal(['Address', 'Street', 'Street Address', 'Address 1', 'Full Address', 'Location Address', 'Site Address', 'Shipping Street']) || '').trim(),
             zipcode: String(getVal(['Zip', 'Zipcode', 'Postal Code', 'Zip Code', 'PC', 'Shipping Zip']) || '').trim()
           };
         }).filter((s: Site) => s.storeNo);
+
+        console.log(`[SYNC-DEBUG] Successfully mapped ${mapped.length} sites (from ${rows.length} total rows).`);
 
         if (mapped.length > 0) {
           await saveSites(mapped, { fileName: 'Smartsheet API', count: mapped.length, date: new Date().toISOString() });
@@ -373,28 +381,34 @@ export async function syncSitesFromRemote(): Promise<{ success: boolean; count: 
         header: true,
         skipEmptyLines: true,
         complete: async (results) => {
-          console.log("Remote Sync: Parsed", results.data.length, "rows");
+          console.log("[SYNC-DEBUG-CSV] Parsed rows:", results.data.length);
           if (results.data.length > 0) {
-            console.log("Sample Row Keys:", Object.keys(results.data[0]));
+            console.log("[SYNC-DEBUG-CSV] Headers:", Object.keys(results.data[0]));
+            console.log("[SYNC-DEBUG-CSV] Row 0 sample:", JSON.stringify(results.data[0]));
           }
 
           const mapped: Site[] = results.data.map((row: any) => {
             // Fuzzy match headers
-            const getVal = (keys: string[]) => {
-              const key = Object.keys(row).find(k => {
-                const normalized = k.trim().toLowerCase().replace(/^\uFEFF/, '').replace(/\s+/g, ' ');
-                return keys.some(searchKey => normalized === searchKey.toLowerCase());
+          const getVal = (keys: string[]) => {
+            const key = Object.keys(row).find(k => {
+              const normalized = k.trim().toLowerCase().replace(/^\uFEFF/, '').replace(/\s+/g, ' ');
+              return keys.some(searchKey => {
+                const search = searchKey.toLowerCase().trim();
+                return normalized === search || normalized.includes(search);
               });
-              return key ? String(row[key]).trim() : '';
-            };
+            });
+            return key ? String(row[key]).trim() : '';
+          };
 
-            return {
-              storeNo: getVal(['Location ID', 'Store #', 'Site ID', 'Store Number', 'Site Number', 'ID', 'Location', 'Store No', 'Store', 'Site', 'Loc', 'Station ID', 'Station #', 'Location Number']) || '',
-              city: getVal(['City', 'Town', 'Location City', 'Municipality']) || '',
-              state: getVal(['State', 'Province', 'ST', 'Region']) || '',
-              streetAddress1: getVal(['Address', 'Street', 'Street Address', 'Address 1', 'Full Address', 'Location Address', 'Site Address']) || '',
-              zipcode: getVal(['Zip', 'Zipcode', 'Postal Code', 'Zip Code', 'PC']) || ''
-            };
+          const sNo = getVal(['Location ID', 'Store #', 'Site ID', 'Store Number', 'Site Number', 'ID', 'Location', 'Store No', 'Store', 'Site', 'Loc', 'Station ID', 'Station #', 'Location Number', 'Store/Location', 'STN', 'Unit', 'Stn #', 'Loc #']) || '';
+
+          return {
+            storeNo: sNo,
+            city: getVal(['City', 'Town', 'Location City', 'Municipality', 'Shipping City', 'Dist']) || '',
+            state: getVal(['State', 'Province', 'ST', 'Region', 'Shipping State']) || '',
+            streetAddress1: getVal(['Address', 'Street', 'Street Address', 'Address 1', 'Full Address', 'Location Address', 'Site Address', 'Shipping Street']) || '',
+            zipcode: getVal(['Zip', 'Zipcode', 'Postal Code', 'Zip Code', 'PC', 'Shipping Zip']) || ''
+          };
           }).filter(s => s.storeNo);
 
           console.log("Remote Sync: Mapped", mapped.length, "valid sites");

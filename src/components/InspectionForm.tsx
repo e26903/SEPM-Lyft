@@ -24,11 +24,10 @@ import {
 } from 'lucide-react';
 import { cn, compressImage } from '../lib/utils';
 import { InspectionData, Condition } from '../types';
-import { saveInspection, getDestinationUrl, getDropboxToken } from '../lib/storage';
+import { saveInspection, getDestinationUrl, getDropboxToken, getImportedSites, getSiteMetadata } from '../lib/storage';
 import { generateInspectionPDF } from '../lib/pdf';
 import { SITES, Site } from '../data/sites';
 import { Search as SearchIcon } from 'lucide-react';
-import { getImportedSites } from '../lib/storage';
 import { format } from 'date-fns';
 
 // Logic for multi-step form
@@ -523,6 +522,7 @@ function GeneralInfoStep({ register, setValue, watch, disabled, errors }: any) {
   const [storeSearch, setStoreSearch] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [allSites, setAllSites] = useState<Site[]>(SITES);
+  const [metadata, setMetadata] = useState<any>(null);
 
   const loadSites = React.useCallback(() => {
     getImportedSites().then(imported => {
@@ -541,6 +541,7 @@ function GeneralInfoStep({ register, setValue, watch, disabled, errors }: any) {
         console.log(`Diagnostic: Loaded ${combined.length} total stations (${imported.length} imported).`);
       }
     });
+    getSiteMetadata().then(setMetadata);
   }, []);
 
   React.useEffect(() => {
@@ -639,7 +640,17 @@ function GeneralInfoStep({ register, setValue, watch, disabled, errors }: any) {
                 ) : (
                   <div className="p-10 text-center space-y-4">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">No Matching Stations Found</p>
-                    {allSites.length === SITES.length && (
+                    {metadata ? (
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                        <p className="text-[9px] text-slate-500 font-bold uppercase leading-relaxed italic">
+                          Database contains {metadata.count} sites from {metadata.fileName}.
+                          <br />Last sync: {new Date(metadata.date).toLocaleString()}
+                        </p>
+                        <p className="text-[8px] text-red-500 font-black uppercase mt-2">
+                          If 515 or 660 are missing, verify they exist in the source sheet.
+                        </p>
+                      </div>
+                    ) : (
                       <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
                         <p className="text-[9px] text-amber-700 font-bold uppercase leading-relaxed italic">
                           Database contains built-in sites only. 

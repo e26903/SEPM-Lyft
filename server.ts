@@ -21,6 +21,12 @@ async function startServer() {
   app.set('strict routing', false);
   app.set('case sensitive routing', false);
 
+  // --- 1. LOGGING MIDDLEWARE (TOP) ---
+  app.use((req, res, next) => {
+    console.log(`[BOOT-LOG] ${req.method} ${req.url} (from ${req.ip})`);
+    next();
+  });
+
   // Simplified Health Routes
   const healthReply = (req: any, res: any) => {
     res.json({ 
@@ -37,12 +43,6 @@ async function startServer() {
   app.get("/api/health", healthReply);
   app.get("/api/status", healthReply);
   app.get("/api/v1/health-diagnostic", healthReply);
-
-  // --- 1. LOGGING MIDDLEWARE ---
-  app.use((req, res, next) => {
-    console.log(`[REQ] ${req.method} ${req.url}`);
-    next();
-  });
 
   // --- 2. MIDDLEWARE ---
   app.use(express.json({ limit: '50mb' }));
