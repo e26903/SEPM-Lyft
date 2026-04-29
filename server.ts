@@ -21,8 +21,30 @@ async function startServer() {
   app.set('strict routing', false);
   app.set('case sensitive routing', false);
 
-  // --- 1. GLOBAL LOGGING ---
+  // --- 1. GLOBAL LOGGING & EARLY INTERCEPTORS ---
   app.use((req, res, next) => {
+    const lowUrl = req.url.toLowerCase();
+    
+    // Aggressive Catch-All for Health/Ping/Status
+    if (lowUrl.includes('health') || lowUrl.includes('ping') || lowUrl.includes('status') || lowUrl.includes('debug-ping')) {
+      console.log(`[TOP-PRIORITY-HEALTH] ${req.method} ${req.url}`);
+      return res.status(200).json({ 
+        status: "ok", 
+        v: "90.0", 
+        time: new Date().toISOString(),
+        env: process.env.NODE_ENV || 'development',
+        uptime: process.uptime(),
+        path: req.path,
+        originalUrl: req.originalUrl
+      });
+    }
+
+    // Early Intercept for Smartsheet Proxy to avoid middleware issues
+    if (lowUrl.startsWith('/api/smartsheet-api-proxy')) {
+       console.log(`[TOP-PRIORITY-PROXY] ${req.method} ${req.url}`);
+       return next(); // Continue to the specific handler, but logging we caught it early
+    }
+
     console.log(`[REQ] ${req.method} ${req.url} (IP: ${req.ip})`);
     next();
   });
@@ -30,52 +52,6 @@ async function startServer() {
   // --- 2. MIDDLEWARE ---
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-  // --- 3. ABSOLUTE TOP PRIORITY HEALTH & API ROUTES ---
-  const healthCheck = (req: any, res: any) => {
-    const healthData = { 
-      status: "ok", 
-      v: "70.0", 
-      time: new Date().toISOString(),
-      env: process.env.NODE_ENV || 'development',
-      uptime: process.uptime(),
-      method: req.method,
-      url: req.url,
-      path: req.path,
-      query: req.query
-    };
-    console.log(`[HEALTH-HIT] ${req.method} ${req.url} -> Sending OK JSON`);
-    res.status(200).json(healthData);
-  };
-
-  // Extremely broad catch for debugging
-  app.use((req, res, next) => {
-    const lowUrl = req.url.toLowerCase();
-    if (lowUrl.includes('health') || lowUrl.includes('ping') || lowUrl.includes('status')) {
-       return healthCheck(req, res);
-    }
-    next();
-  });
-
-  app.get('/debug-ping', (req, res) => {
-    console.log("[DEBUG] Debug ping hit");
-    res.set('X-Server-Identity', 'Express-V60').send('PONG-V60');
-  });
-
-  // Aggressive catch for all health/diagnostic variations
-  const healthPaths = [
-    '/health', '/healthz', '/ping', '/status', 
-    '/api/health', '/api/ping', '/api/status', '/api/v1/health',
-    '/api/v1/health-diagnostic', '/api/v1/status'
-  ];
-  
-  app.use((req, res, next) => {
-    const p = req.path.toLowerCase();
-    if (healthPaths.includes(p)) {
-      return healthCheck(req, res);
-    }
-    next();
-  });
 
   // API Proxy Routes - explicitly handled
   const handleSmartsheetProxy = async (req: any, res: any) => {
