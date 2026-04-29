@@ -33,36 +33,59 @@ async function startServer() {
 
   // --- 3. ABSOLUTE TOP PRIORITY HEALTH & API ROUTES ---
   const healthCheck = (req: any, res: any) => {
-    console.log(`[HEALTH-HIT] ${req.method} ${req.url}`);
-    res.status(200).json({ 
+    const healthData = { 
       status: "ok", 
-      v: "50.0", 
+      v: "70.0", 
       time: new Date().toISOString(),
       env: process.env.NODE_ENV || 'development',
-      uptime: process.uptime()
-    });
+      uptime: process.uptime(),
+      method: req.method,
+      url: req.url,
+      path: req.path,
+      query: req.query
+    };
+    console.log(`[HEALTH-HIT] ${req.method} ${req.url} -> Sending OK JSON`);
+    res.status(200).json(healthData);
   };
 
-  // Register all variations of health checks
+  // Extremely broad catch for debugging
+  app.use((req, res, next) => {
+    const lowUrl = req.url.toLowerCase();
+    if (lowUrl.includes('health') || lowUrl.includes('ping') || lowUrl.includes('status')) {
+       return healthCheck(req, res);
+    }
+    next();
+  });
+
+  app.get('/debug-ping', (req, res) => {
+    console.log("[DEBUG] Debug ping hit");
+    res.set('X-Server-Identity', 'Express-V60').send('PONG-V60');
+  });
+
+  // Aggressive catch for all health/diagnostic variations
   const healthPaths = [
     '/health', '/healthz', '/ping', '/status', 
     '/api/health', '/api/ping', '/api/status', '/api/v1/health',
-    '/api/v1/health-diagnostic'
+    '/api/v1/health-diagnostic', '/api/v1/status'
   ];
   
-  healthPaths.forEach(p => {
-    app.get(p, healthCheck);
-    app.head(p, healthCheck);
+  app.use((req, res, next) => {
+    const p = req.path.toLowerCase();
+    if (healthPaths.includes(p)) {
+      return healthCheck(req, res);
+    }
+    next();
   });
 
-  // API Proxy Routes
-  app.all("/api/smartsheet-api-proxy", async (req: any, res: any) => {
-    console.log(`[API-PROXY] ${req.method} Smartsheet: ${req.url}`);
-    const sheetId = req.method === 'POST' ? req.body.sheetId : req.query.sheetId;
-    const token = req.method === 'POST' ? req.body.token : req.query.token;
+  // API Proxy Routes - explicitly handled
+  const handleSmartsheetProxy = async (req: any, res: any) => {
+    console.log(`[API-PROXY] Smartsheet: ${req.method} ${req.url}`);
+    const sheetId = (req.method === 'POST' ? req.body.sheetId : req.query.sheetId) || req.params.sheetId;
+    const token = (req.method === 'POST' ? req.body.token : req.query.token) || req.headers['authorization']?.replace('Bearer ', '');
 
     if (!sheetId || !token) {
-      return res.status(400).json({ error: "Missing Sheet ID or Token" });
+      console.warn("[API-PROXY] Missing Credentials", { sheetId: !!sheetId, token: !!token });
+      return res.status(400).json({ error: "Missing Credentials (SheetId/Token)" });
     }
 
     try {
@@ -79,7 +102,10 @@ async function startServer() {
       console.error("[API-PROXY-ERROR]", error);
       res.status(500).json({ error: "Proxy failed", details: error.message });
     }
-  });
+  };
+
+  app.all("/api/smartsheet-api-proxy", handleSmartsheetProxy);
+  app.all("/api/smartsheet-api-proxy/:sheetId", handleSmartsheetProxy);
 
   app.post("/api/upload-to-dropbox", async (req: any, res: any) => {
     console.log("[API] Dropbox Upload requested");

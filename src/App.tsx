@@ -947,8 +947,15 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
           throw new Error(`${endpoint}: Expected JSON, got HTML (Check Backend Routing)`);
         }
         
-        const data = await response.json();
-        if (data && (data.status === 'ok' || data.status === 'success')) return data;
+        let data;
+        if (contentType.includes("application/json")) {
+           data = await response.json();
+           if (data && (data.status === 'ok' || data.status === 'success')) return data;
+        } else {
+           const text = await response.text();
+           if (text.includes("PONG")) return { status: 'ok', v: text, env: 'debug-pong' };
+        }
+        
         throw new Error("Invalid format");
       } catch (err: any) {
         throw err;
@@ -959,6 +966,7 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
       .catch(() => tryHealth('/api/status'))
       .catch(() => tryHealth('/health'))
       .catch(() => tryHealth('/healthz'))
+      .catch(() => tryHealth('/debug-ping'))
       .catch(() => tryHealth('/api/v1/health'))
       .catch(() => tryHealth('/status'))
       .catch(() => tryHealth('/api/v1/health-diagnostic'))
