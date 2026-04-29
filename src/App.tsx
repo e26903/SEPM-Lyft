@@ -979,9 +979,9 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
         });
         setDiagnostic({ 
           lastFail: err.message,
-          detail: `[v208.0] [Origin: ${window.location.origin}] ${err.message.includes('Got HTML') 
-            ? 'The server returned HTML instead of JSON. This usually indicates an SPA fallback interception or Vercel static serving.' 
-            : 'Unreachable or invalid response. Check console logs for "Failed to fetch" details. Environment: ' + (window.location.hostname.includes('vercel') ? 'Vercel' : 'Cloud Run')}`
+          detail: `[v209.0] [Origin: ${window.location.origin}] ${err.message.includes('Got HTML') 
+            ? 'The server returned HTML instead of JSON. This indicates a routing mismatch. Check /api paths.' 
+            : 'Unreachable or invalid response. Check console logs. Env: ' + (window.location.hostname.includes('vercel') ? 'Vercel' : 'Cloud Run')}`
         });
       });
   }, [isAdmin]);

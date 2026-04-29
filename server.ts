@@ -43,9 +43,10 @@ async function configureServer() {
     res.setHeader('Content-Type', 'application/json');
     res.json({ 
       status: "ok", 
-      v: "208.0", 
+      v: "209.0", 
       env: process.env.NODE_ENV,
       p: req.path,
+      query: req.query,
       url: req.originalUrl,
       proto: req.headers['x-forwarded-proto'] || 'unknown',
       host: req.headers.host
