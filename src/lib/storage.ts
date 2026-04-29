@@ -416,11 +416,10 @@ export async function syncSitesFromRemote(): Promise<{ success: boolean; count: 
           await saveSites(mapped, { fileName: 'Smartsheet API', count: mapped.length, date: new Date().toISOString() });
           return { success: true, count: mapped.length };
         } else {
-          return { success: false, count: 0, error: "No valid sites found in sheet via API." };
+          console.warn("[SYNC-DEBUG] No valid sites found in Smartsheet API, falling back to CSV...");
         }
       } catch (err: any) {
-        console.error("Smartsheet API Sync failed:", err);
-        return { success: false, count: 0, error: `API Sync Failed: ${err.message}` };
+        console.error("Smartsheet API Sync failed, falling back to CSV:", err);
       }
     }
   }

@@ -31,11 +31,16 @@ async function configureServer() {
 
   // --- 3. API ROUTES ---
   const apiRouter = express.Router();
+  
+  apiRouter.use((req, res, next) => {
+    console.log(`[API-ROUTER] ${req.method} ${req.path} (Full: ${req.url})`);
+    next();
+  });
 
   const healthReply = (req: any, res: any) => {
     res.json({ 
       status: "ok", 
-      v: "218.0", 
+      v: "219.1", 
       env: process.env.NODE_ENV,
       vercel: !!process.env.VERCEL,
       path: req.path,
@@ -109,14 +114,7 @@ async function configureServer() {
 
   // Mount API router
   app.use("/api", apiRouter);
-  app.use("/", (req, res, next) => {
-    // If the path starts with /api (already handled) or is /, let it pass
-    // Otherwise, check if it matches an apiRoute
-    if (req.path === '/ping' || req.path === '/health' || req.path === '/smartsheet-api-proxy' || req.path === '/proxy-site-data') {
-       return apiRouter(req, res, next);
-    }
-    next();
-  });
+  app.use(apiRouter); // Support routes without /api prefix (handled by Vercel functions at /api)
 
   // Fallback for missing API routes
   app.all('/api/*', (req, res) => {
