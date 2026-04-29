@@ -144,23 +144,74 @@ async function saveCloudSetting(key: string, value: string) {
   } catch (err) { console.error("Cloud setting save failed", err); }
 }
 
-// SITES (Remains Local for speed/offline)
+// SITES (Persist to Firestore if logged in)
 export async function saveSites(sites: Site[], metadata: { fileName: string; count: number; date: string }) {
   await siteStore.setItem('master_list', sites);
   await siteStore.setItem('manifest_metadata', metadata);
+
+  const user = auth.currentUser;
+  if (user) {
+    try {
+      const siteListRef = doc(db, 'sites', 'master_list');
+      await setDoc(siteListRef, { 
+        sites, 
+        metadata,
+        updatedAt: serverTimestamp(),
+        updatedBy: user.email
+      });
+      console.log("[STORAGE] Sites synced to cloud");
+    } catch (err) {
+      console.error("[STORAGE] Cloud site save failed:", err);
+    }
+  }
 }
 
 export async function getSiteMetadata(): Promise<{ fileName: string; count: number; date: string } | null> {
-  return await siteStore.getItem('manifest_metadata');
+  const local = await siteStore.getItem<{ fileName: string; count: number; date: string }>('manifest_metadata');
+  if (local) return local;
+
+  const user = auth.currentUser;
+  if (user) {
+    try {
+      const siteListSnap = await getDoc(doc(db, 'sites', 'master_list'));
+      if (siteListSnap.exists()) {
+        const data = siteListSnap.data();
+        return data.metadata;
+      }
+    } catch {}
+  }
+  return null;
 }
 
 export async function clearImportedSites() {
   await siteStore.removeItem('master_list');
   await siteStore.removeItem('manifest_metadata');
+  const user = auth.currentUser;
+  if (user) {
+    try {
+      await deleteDoc(doc(db, 'sites', 'master_list'));
+    } catch {}
+  }
 }
 
 export async function getImportedSites(): Promise<Site[]> {
-  return await siteStore.getItem('master_list') || [];
+  const local = await siteStore.getItem<Site[]>('master_list');
+  if (local && local.length > 0) return local;
+
+  const user = auth.currentUser;
+  if (user) {
+    try {
+      const siteListSnap = await getDoc(doc(db, 'sites', 'master_list'));
+      if (siteListSnap.exists()) {
+        const data = siteListSnap.data();
+        const sites = data.sites as Site[];
+        await siteStore.setItem('master_list', sites);
+        await siteStore.setItem('manifest_metadata', data.metadata);
+        return sites;
+      }
+    } catch {}
+  }
+  return [];
 }
 
 // SETTINGS WRAPPERS

@@ -979,9 +979,9 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
         });
         setDiagnostic({ 
           lastFail: err.message,
-          detail: `[v209.0] [Origin: ${window.location.origin}] ${err.message.includes('Got HTML') 
-            ? 'The server returned HTML instead of JSON. This indicates a routing mismatch. Check /api paths.' 
-            : 'Unreachable or invalid response. Check console logs. Env: ' + (window.location.hostname.includes('vercel') ? 'Vercel' : 'Cloud Run')}`
+          detail: `[v210.0] [API: ${window.location.origin}/api/health] ${err.message.includes('Got HTML') 
+            ? 'Backend routing issue: Server returned index.html instead of JSON. Ensure "/api" rewrites are active.' 
+            : 'Unreachable. Check if backend is running. Environment: ' + (window.location.hostname.includes('vercel') ? 'Vercel' : 'Cloud Run')}`
         });
       });
   }, [isAdmin]);

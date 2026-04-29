@@ -22,14 +22,16 @@ async function configureServer() {
   app.set('strict routing', false);
   app.set('case sensitive routing', false);
 
-  // --- 1. LOGGING MIDDLEWARE (TOP) ---
+  // --- 1. LOGGING MIDDLEWARE ---
   app.use((req, res, next) => {
-    const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] ${req.method} ${req.url} - User-Agent: ${req.headers['user-agent']}`);
+    // Only log API and main page requests to avoid log noise
+    if (req.url.startsWith('/api/') || req.url === '/') {
+      console.log(`[REQ] ${req.method} ${req.url}`);
+    }
     next();
   });
 
-  // --- 2. API ROUTES (PRIORITY) ---
+  // --- 2. API ROUTES ---
   const cors = (await import("cors")).default;
   app.use(cors());
   app.use(express.json({ limit: '50mb' }));
@@ -37,24 +39,18 @@ async function configureServer() {
 
   const apiRouter = express.Router();
 
-  // Health check routes
   const healthReply = (req: any, res: any) => {
-    console.log(`[API-HEALTH] Request from ${req.ip} to ${req.originalUrl}`);
-    res.setHeader('Content-Type', 'application/json');
     res.json({ 
       status: "ok", 
-      v: "209.0", 
+      v: "210.0", 
       env: process.env.NODE_ENV,
       p: req.path,
-      query: req.query,
       url: req.originalUrl,
-      proto: req.headers['x-forwarded-proto'] || 'unknown',
       host: req.headers.host
     });
   };
 
   const handleSmartsheetProxy = async (req: any, res: any) => {
-    console.log(`[PROXY] ${req.method} ${req.originalUrl} - Body: ${!!req.body}`);
     let sheetId = req.params.sheetId || req.query.sheetId;
     if (!sheetId && req.body && req.body.sheetId) sheetId = req.body.sheetId;
     let token = req.headers['authorization']?.replace('Bearer ', '');
@@ -62,38 +58,30 @@ async function configureServer() {
     if (!token && req.body && req.body.token) token = req.body.token;
 
     if (!sheetId || !token) {
-      console.warn("[PROXY-ERR] Missing credentials for Smartsheet");
-      return res.status(400).json({ error: "Missing Credentials" });
+      return res.status(400).json({ error: "Missing Smartsheet credentials" });
     }
 
     try {
-      console.log(`[PROXY-FETCH] Requesting Smartsheet for ID: ${sheetId}`);
       const response = await fetch(`https://api.smartsheet.com/2.0/sheets/${sheetId}`, {
         headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
       });
       if (!response.ok) {
         const text = await response.text();
-        console.error(`[PROXY-FETCH-ERR] Remote status: ${response.status}`);
-        return res.status(response.status).json({ error: `Smartsheet ${response.status}`, details: text });
+        return res.status(response.status).json({ error: `Smartsheet API ${response.status}`, details: text });
       }
       const data = await response.json();
-      console.log(`[PROXY-FETCH-SUCCESS] Got data`);
       res.json(data);
     } catch (error: any) {
-      console.error(`[PROXY-EXCEPTION] ${error.message}`);
-      res.status(500).json({ error: "Proxy Exception", details: error.message });
+      res.status(500).json({ error: "Smartsheet Proxy Error", details: error.message });
     }
   };
 
   apiRouter.get("/health", healthReply);
   apiRouter.get("/ping", healthReply);
-  apiRouter.get("/status", healthReply);
-  apiRouter.get("/v2/test", (req, res) => res.json({ v: 2, env: process.env.NODE_ENV }));
   apiRouter.all("/smartsheet-api-proxy", handleSmartsheetProxy);
   apiRouter.all("/smartsheet-api-proxy/:sheetId", handleSmartsheetProxy);
 
   apiRouter.post("/upload-to-dropbox", async (req: any, res: any) => {
-    console.log("[API-DROPBOX] Upload started");
     const { pdfBase64, fileName, accessToken } = req.body;
     if (!pdfBase64 || !fileName) return res.status(400).json({ error: "Missing data" });
     const token = accessToken || process.env.DROPBOX_ACCESS_TOKEN;
@@ -105,13 +93,11 @@ async function configureServer() {
       await dbx.filesUpload({ path: `/${fileName}`, contents: buffer, mode: { '.tag': 'overwrite' } });
       res.json({ success: true });
     } catch (error: any) {
-      console.error("[API-DROPBOX-ERR]", error.message);
       res.status(500).json({ error: "Dropbox failed", details: error.message });
     }
   });
 
   apiRouter.get("/proxy-site-data", async (req: any, res: any) => {
-    console.log("[API-PROXY-CSV] Fetch started");
     const { url } = req.query;
     if (!url || typeof url !== 'string') return res.status(400).json({ error: "Missing URL" });
     try {
@@ -119,94 +105,65 @@ async function configureServer() {
       const data = await response.text();
       res.setHeader('Content-Type', 'text/csv').send(data);
     } catch (error: any) {
-      console.error("[API-PROXY-CSV-ERR]", error.message);
-      res.status(500).json({ error: "Proxy failed", details: error.message });
+      res.status(500).json({ error: "CSV Proxy failed", details: error.message });
     }
   });
 
-  // Explicitly mount API router
   app.use("/api", apiRouter);
 
-  // Catch-all for /api requests that missed the above - return JSON 404, NOT index.html
+  // Fallback for API
   app.all('/api/*', (req, res) => {
-    console.warn(`[API-MISS] No matching route for ${req.method} ${req.url}`);
     res.status(404).json({ error: "API Route Not Found", path: req.url });
   });
 
-  // Backup root health
-  app.get("/api-health", healthReply);
-
-  // --- 5. STATIC FILES & PRODUCTION SERVING ---
-  const publicPath = path.join(process.cwd(), 'public');
+  // --- 3. STATIC FILES & SPA FALLBACK ---
   const distPath = path.join(process.cwd(), 'dist');
-  const indexPath = path.join(distPath, 'index.html');
+  const hasDist = fs.existsSync(path.join(distPath, 'index.html'));
 
-  // Priority Mode Check: Only use production if dist/index.html is actually present
-  const hasDist = fs.existsSync(indexPath);
-  if (!hasDist && process.env.NODE_ENV === "production") {
-    console.error(`[BOOT-CRITICAL] Dist folder missing at ${distPath}! Listing parent:`);
-    try {
-      console.log(`[BOOT-LS] ${process.cwd()}: ${fs.readdirSync(process.cwd()).join(', ')}`);
-    } catch {}
-  }
-  const isProductionMode = process.env.NODE_ENV === "production" && hasDist;
-  
-  console.log(`[BOOT] Mode: ${isProductionMode ? 'PRODUCTION' : 'DEVELOPMENT'}`);
-  if (!isProductionMode && !hasDist && process.env.NODE_ENV === "production") {
-    console.warn("[WARN] NODE_ENV is production but dist/index.html is missing! Falling back to dev/Vite.");
-  }
-
-  if (!isProductionMode) {
-    console.log("[BOOT] Starting Vite Middleware...");
+  if (process.env.NODE_ENV === "production" && hasDist) {
+    console.log("[BOOT] Production mode: Serving dist/ as static");
+    app.use(express.static(distPath, { index: false }));
+    app.get('*', (req, res, next) => {
+      // Don't intercept API calls here if they missed the router
+      if (req.path.startsWith('/api/')) return next(); 
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  } else if (!process.env.VERCEL) {
+    // In dev or non-Vercel environment where dist is missing
+    console.log("[BOOT] Development mode: Starting Vite Middleware...");
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
-    console.log("[BOOT] Serving Static Assets...");
-    app.use(express.static(distPath, { index: false }));
-    if (fs.existsSync(publicPath)) {
-      app.use(express.static(publicPath, { index: false }));
-    }
-    
-    app.get('*', (req, res) => {
-      // API routes should already be handled, but as a safety for trailing slashes or missed matches:
-      if (req.path.startsWith('/api/')) {
-        return res.status(404).json({ error: "API Route Not Found", path: req.path });
-      }
-      
-      res.sendFile(indexPath, (err) => {
-        if (err) {
-          console.error("[ERROR] Failed to send index.html:", err);
-          res.status(500).send("Server Error: Missing entry point");
-        }
-      });
-    });
   }
-
-
-
-  app.use((err: any, req: any, res: any, next: any) => {
-    console.error("[SERVER-ERROR]", err);
-    res.status(500).json({ error: "Internal Server Error", message: err.message });
-  });
 
   return app;
 }
 
-const serverPromise = configureServer().then(app => {
-  if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-    const PORT = 3000;
+// Global instance for reuse
+let serverApp: any = null;
+
+async function getServer() {
+  if (!serverApp) {
+    serverApp = await configureServer();
+  }
+  return serverApp;
+}
+
+// Non-blocking start for dev server
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  getServer().then(app => {
+    const PORT = process.env.PORT || 3000;
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running at http://localhost:${PORT}`);
     });
-  }
-  return app;
-});
+  });
+}
 
+// Export for Vercel
 export default async (req: any, res: any) => {
-  const app = await serverPromise;
+  const app = await getServer();
   return app(req, res);
 };

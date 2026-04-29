@@ -40,6 +40,10 @@
     "/authorized_users/{email}": {
       "schema": "object",
       "description": "List of emails permitted to access the operational portal."
+    },
+    "/sites/{listId}": {
+      "schema": "object",
+      "description": "Cloud-synced master site lists for station selection."
     }
   }
 }
