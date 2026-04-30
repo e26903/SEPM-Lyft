@@ -239,7 +239,8 @@ export function InspectionForm({ inspection, setInspection, onBack, onComplete }
 
         // 2. Generate PDF
         const doc = await generateInspectionPDF(finalData);
-        const fileName = `SEPM_Inspection_Report_${finalData.workOrderNo || 'Draft'}_${format(new Date(), 'yyyyMMdd_HHmmss')}.pdf`;
+        const safeWONo = (finalData.workOrderNo || 'Draft').replace(/[^a-z0-9]/gi, '_');
+        const fileName = `SEPM_Inspection_Report_${safeWONo}_${format(new Date(), 'yyyyMMdd_HHmmss')}.pdf`;
 
         if (dbxToken) {
           setStatusMsg('Uploading directly to Dropbox...');
@@ -275,7 +276,8 @@ export function InspectionForm({ inspection, setInspection, onBack, onComplete }
             let errorDetail = 'Unknown Error';
             try {
               const errorData = await response.json();
-              errorDetail = errorData.details || errorData.error || JSON.stringify(errorData);
+              const details = errorData.details || errorData.error;
+              errorDetail = typeof details === 'object' ? JSON.stringify(details) : (details || JSON.stringify(errorData));
             } catch (jsonErr) {
               const textError = await response.text();
               errorDetail = textError.substring(0, 200);

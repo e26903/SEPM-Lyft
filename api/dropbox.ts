@@ -1,4 +1,5 @@
 import { Dropbox } from 'dropbox';
+import { Buffer } from 'node:buffer';
 
 export default async function handler(req: any, res: any) {
   // Set CORS headers
@@ -25,7 +26,11 @@ export default async function handler(req: any, res: any) {
     return res.status(401).json({ error: "Missing Dropbox access token" });
   }
 
-  console.log(`[VERCEL-DROPBOX] Uploading: ${fileName} (${pdfBase64.length} chars)`);
+  // Format path correctly for Dropbox
+  // Must start with / and not end with /
+  let dropboxPath = fileName.startsWith('/') ? fileName : `/${fileName}`;
+  
+  console.log(`[VERCEL-DROPBOX] Attempting upload to: ${dropboxPath}`);
 
   try {
     const dbx = new Dropbox({ accessToken: token });
@@ -35,21 +40,28 @@ export default async function handler(req: any, res: any) {
     const buffer = Buffer.from(base64Data, 'base64');
 
     const response = await dbx.filesUpload({
-      path: `/${fileName.startsWith('/') ? fileName.substring(1) : fileName}`,
+      path: dropboxPath,
       contents: buffer,
-      mode: { '.tag': 'overwrite' }
+      mode: { '.tag': 'overwrite' },
+      mute: false
     });
 
+    console.log(`[VERCEL-DROPBOX] Upload success: ${response.result.path_display}`);
     res.status(200).json({ success: true, result: response.result });
   } catch (error: any) {
-    console.error(`[VERCEL-DROPBOX-ERROR]`, error);
+    console.error(`[VERCEL-DROPBOX-ERROR]`, JSON.stringify(error, null, 2));
     
-    // Attempt to extract helpful error details from Dropbox SDK
-    const details = error.error || error.message || "Unknown error";
-    res.status(500).json({ 
+    let errorInfo = "Unknown Error";
+    if (error.error) {
+      errorInfo = error.error;
+    } else if (error.message) {
+      errorInfo = error.message;
+    }
+
+    res.status(error.status || 500).json({ 
       error: "Dropbox Upload Failed", 
-      details: details,
-      summary: error.toString()
+      details: errorInfo,
+      path: dropboxPath
     });
   }
 }
