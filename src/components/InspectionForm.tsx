@@ -243,12 +243,22 @@ export function InspectionForm({ inspection, setInspection, onBack, onComplete }
 
         if (dbxToken) {
           setStatusMsg('Uploading directly to Dropbox...');
-          // Get base64 string from doc
-          const pdfData = doc.output('arraybuffer');
-          const base64String = btoa(
-            new Uint8Array(pdfData)
-              .reduce((data, byte) => data + String.fromCharCode(byte), '')
-          );
+          
+          // Safer way to get base64 from PDF blob
+          const pdfBlob = doc.output('blob');
+          const base64String = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const result = reader.result as string;
+              if (result.includes(',')) {
+                resolve(result.split(',')[1]);
+              } else {
+                resolve(result);
+              }
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(pdfBlob);
+          });
 
           // Call our server API
           const response = await fetch('/api/upload-to-dropbox', {
@@ -262,8 +272,15 @@ export function InspectionForm({ inspection, setInspection, onBack, onComplete }
           });
 
           if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.details || error.error || 'Upload failed');
+            let errorDetail = 'Unknown Error';
+            try {
+              const errorData = await response.json();
+              errorDetail = errorData.details || errorData.error || JSON.stringify(errorData);
+            } catch (jsonErr) {
+              const textError = await response.text();
+              errorDetail = textError.substring(0, 200);
+            }
+            throw new Error(`Sync Failed: ${errorDetail}`);
           }
           
           setStatusMsg('Report Synchronized!');

@@ -979,7 +979,7 @@ function SettingsScreen({ onBack, setCurrentScreen }: { onBack: () => void, setC
         });
         setDiagnostic({ 
           lastFail: err.message,
-          detail: `[v219.4] [API: ${window.location.origin}/api/health] ${err.message.includes('Got HTML') 
+          detail: `[v219.5] [API: ${window.location.origin}/api/health] ${err.message.includes('Got HTML') 
             ? 'Backend routing mismatch: Server returned index.html instead of JSON. Inspecting response: ' + err.message.substring(0, 100)
             : 'Unreachable. Response: ' + err.message + ' Env: ' + (window.location.hostname.includes('vercel') ? 'Vercel' : 'Cloud Run')}`
         });

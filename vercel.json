@@ -18,6 +18,10 @@
       "destination": "/api/csv-proxy.ts"
     },
     {
+      "source": "/api/upload-to-dropbox",
+      "destination": "/api/dropbox.ts"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/index.ts"
     },
