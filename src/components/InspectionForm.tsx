@@ -277,7 +277,12 @@ export function InspectionForm({ inspection, setInspection, onBack, onComplete }
             try {
               const errorData = await response.json();
               const details = errorData.details || errorData.error;
-              errorDetail = typeof details === 'object' ? JSON.stringify(details) : (details || JSON.stringify(errorData));
+              
+              if (details && typeof details === 'object' && details['.tag'] === 'expired_access_token') {
+                errorDetail = "Dropbox token expired. Please generate a new one in settings.";
+              } else {
+                errorDetail = typeof details === 'object' ? JSON.stringify(details) : (details || JSON.stringify(errorData));
+              }
             } catch (jsonErr) {
               const textError = await response.text();
               errorDetail = textError.substring(0, 200);

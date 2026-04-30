@@ -1,7 +1,7 @@
 export default function handler(req: any, res: any) {
   res.status(200).json({ 
     status: "ok", 
-    v: "simple-219.6", 
+    v: "simple-219.7", 
     vercel: true,
     node: process.version,
     env: process.env.NODE_ENV,
